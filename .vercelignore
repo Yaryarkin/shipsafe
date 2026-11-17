@@ -1,0 +1,17 @@
+# Files never uploaded by `vercel` CLI deploys (Vercel builds from source in the cloud).
+node_modules
+.next
+out
+build
+.vercel
+*.tsbuildinfo
+
+# Local secrets – set production values in Vercel → Project → Settings → Environment Variables instead
+.env
+.env.local
+.env*.local
+.env*
+!.env.example
+
+npm-debug.log*
+.DS_Store

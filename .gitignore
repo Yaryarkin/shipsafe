@@ -1,0 +1,24 @@
+# Dependencies & build output
+node_modules
+.next
+out
+build
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel project link (local only)
+.vercel
+
+# Local secrets – never commit or upload
+.env
+.env.local
+.env*.local
+.env*
+!.env.example
+
+# Private working notes (not part of the public repo)
+GEMINI_REPORT.md
+
+# Logs & OS files
+npm-debug.log*
+.DS_Store
