@@ -12,8 +12,10 @@ import {
 import { callTelegramApi, telegramTokenFromEnv } from "../telegram";
 
 describe("Telegram Stars pricing", () => {
-  it("prices Quick Review at $10 or 500 Stars and Full Audit at $49 or 3500 Stars", () => {
+  it("prices Quick Review at $10 / 500, Fix Pack at $20 / 1200 and Full Audit at $49 / 3500 Stars", () => {
     expect(PRICING_TIERS.quick).toMatchObject({ priceUsd: 10, starsAmount: 500 });
+    expect(PRICING_TIERS.fix).toMatchObject({ priceUsd: 20, starsAmount: 1200 });
+    expect(formatStars(PRICING_TIERS.fix.starsAmount)).toBe("1,200 ⭐");
     expect(PRICING_TIERS.full).toMatchObject({ priceUsd: 49, starsAmount: 3500 });
   });
 

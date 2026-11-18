@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createDemoReport } from "@/lib/demo-report";
 import { browserStorage, recordScanAndDiff, type ScanDiff } from "@/lib/scan-history";
+import { isBuildTarget } from "@/lib/scan-target";
 import { apiErrorSchema, scanResultSchema, type ScanResult } from "@/lib/scanner/types";
 import { HowItWorks } from "./HowItWorks";
 import { ProAuditModal } from "./ProAuditModal";
 import { ResultsDashboard } from "./ResultsDashboard";
 import { SCAN_STEPS } from "./ScanProgress";
-import { ScannerForm } from "./ScannerForm";
+import { ScannerForm, type ScanMode } from "./ScannerForm";
 import { TopBar } from "./TopBar";
 
 /** When each progress step lights up (ms after start). The real scan runs all checks in parallel. */
@@ -24,6 +25,8 @@ export function ShipSafeApp() {
   const [scanDiff, setScanDiff] = useState<ScanDiff | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [proOpen, setProOpen] = useState(false);
+  const [mode, setMode] = useState<ScanMode>("url");
+  const [scanningFile, setScanningFile] = useState<string | null>(null);
 
   const stepTimers = useRef<number[]>([]);
   const abortRef = useRef<AbortController | null>(null);
@@ -120,8 +123,52 @@ export function ShipSafeApp() {
     setResult(createDemoReport());
   }, [scanning]);
 
+  /** Client-side build scan: the archive is unpacked and analyzed in this tab, never uploaded. */
+  const scanBuild = useCallback(
+    async (file: File) => {
+      if (scanning) return;
+      // Lazy-load JSZip + the analyzer only when someone actually scans a build.
+      const [{ extractBuildArchive }, { analyzeBuildArchive, assertArchiveSize, BuildArchiveError, isSupportedBuildFile }] = await Promise.all([
+        import("@/lib/build-extract"),
+        import("@/lib/scanner/build-analyzer"),
+      ]);
+      if (!isSupportedBuildFile(file.name)) {
+        setError("Choose an Android .apk or a .zip of your game / app build.");
+        return;
+      }
+      try {
+        assertArchiveSize(file.size);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "This archive is too large to scan in the browser.");
+        return;
+      }
+
+      setError(null);
+      setResult(null);
+      setScanDiff(null);
+      setScanningFile(file.name);
+      setScanning(true);
+      const startedAt = performance.now();
+      try {
+        const { files, meta } = await extractBuildArchive(file, file.name);
+        const report = analyzeBuildArchive(files, file.name, { meta, durationMs: performance.now() - startedAt });
+        shouldScroll.current = true;
+        setIsDemo(false);
+        setResult(report);
+      } catch (caught) {
+        setError(caught instanceof BuildArchiveError ? caught.message : `Couldn't analyze "${file.name}". Make sure it's a valid .apk or .zip archive.`);
+      } finally {
+        setScanning(false);
+        setScanningFile(null);
+      }
+    },
+    [scanning],
+  );
+
+  const isBuildResult = Boolean(result && isBuildTarget(result.target));
+
   const rescan = useCallback(() => {
-    if (result && !isDemo) void runScan(result.target);
+    if (result && !isDemo && !isBuildTarget(result.target)) void runScan(result.target);
   }, [result, isDemo, runScan]);
 
   const openPro = useCallback(() => setProOpen(true), []);
@@ -144,18 +191,27 @@ export function ShipSafeApp() {
             <p className="mt-4 text-base leading-relaxed text-zinc-400 sm:text-lg">
               Paste your URL to audit HTTPS, security headers, exposed <span className="font-mono text-zinc-300">.env</span>{" "}
               / <span className="font-mono text-zinc-300">.git</span> files, CORS, cookies and API keys hiding in your
-              JavaScript bundles — with a copy-paste AI fix prompt for every issue.
+              JavaScript bundles — or drop an <span className="font-mono text-zinc-300">.apk</span> /{" "}
+              <span className="font-mono text-zinc-300">.zip</span> game or app build to check it right in your browser. Every
+              issue comes with a copy-paste AI fix prompt.
             </p>
           </div>
 
           <div className="mt-8 max-w-3xl">
             <ScannerForm
+              mode={mode}
+              onModeChange={(next) => {
+                setMode(next);
+                setError(null);
+              }}
               url={url}
               onUrlChange={setUrl}
               onScan={runScan}
+              onFileScan={(file) => void scanBuild(file)}
               onDemo={loadDemo}
               scanning={scanning}
               activeStep={activeStep}
+              scanningFile={scanningFile}
               error={error}
             />
           </div>
@@ -167,8 +223,8 @@ export function ShipSafeApp() {
               key={`${result.scannedAt}-${isDemo}`}
               result={result}
               isDemo={isDemo}
-              scanDiff={scanDiff}
-              onRescan={isDemo ? undefined : rescan}
+              scanDiff={isBuildResult ? null : scanDiff}
+              onRescan={isDemo || isBuildResult ? undefined : rescan}
               rescanning={scanning}
               onOpenPro={openPro}
             />
@@ -187,7 +243,8 @@ export function ShipSafeApp() {
         </div>
       </footer>
 
-      <ProAuditModal open={proOpen} onClose={closePro} scannedUrl={result && !isDemo ? result.target : undefined} />
+      {/* Builds have no URL to prefill (the order form expects an http(s) site). */}
+      <ProAuditModal open={proOpen} onClose={closePro} scannedUrl={result && !isDemo && !isBuildResult ? result.target : undefined} />
     </>
   );
 }

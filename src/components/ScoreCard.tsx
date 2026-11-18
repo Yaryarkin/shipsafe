@@ -1,6 +1,7 @@
 import { ArrowUpRight, Clock, RotateCw, TrendingDown, TrendingUp } from "lucide-react";
 import { describeScanDiff, isMeaningfulDiff, type ScanDiff } from "@/lib/scan-history";
 import type { Grade, ScanResult } from "@/lib/scanner/types";
+import { displayTarget } from "@/lib/scan-target";
 import { buildShareText, buildXIntentUrl, SITE_URL } from "@/lib/share";
 import { CopyButton } from "./CopyButton";
 
@@ -47,8 +48,8 @@ export function ScoreCard({
 }) {
   const color = GRADE_COLOR[result.grade];
   const offset = CIRCUMFERENCE * (1 - result.overallScore / 100);
-  const host = new URL(result.target).host;
-  const shareText = buildShareText(result.overallScore, result.grade, SITE_URL, scanDiff);
+  const host = displayTarget(result.target);
+  const shareText = buildShareText(result.overallScore, result.grade, SITE_URL, scanDiff, result.target);
   const diff = isMeaningfulDiff(scanDiff) ? scanDiff : null;
   const diffTone = !diff
     ? ""

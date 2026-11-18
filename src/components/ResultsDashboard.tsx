@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ScanDiff } from "@/lib/scan-history";
+import { isBuildTarget } from "@/lib/scan-target";
 import type { ScanResult } from "@/lib/scanner/types";
 import { ExportBar } from "./ExportBar";
 import { FilterBar, type FindingFilter } from "./FilterBar";
@@ -31,6 +32,7 @@ export function ResultsDashboard({
   onOpenPro: () => void;
 }) {
   const [filter, setFilter] = useState<FindingFilter>("all");
+  const isBuild = isBuildTarget(result.target);
 
   const visible = useMemo(
     () => (filter === "all" ? result.findings : result.findings.filter((item) => item.severity === filter)),
@@ -55,12 +57,18 @@ export function ResultsDashboard({
       ) : (
         <ul className="space-y-2">
           {visible.map((item) => (
-            <FindingCard key={`${result.scannedAt}-${item.id}`} finding={item} defaultOpen={item.severity === "critical"} />
+            <FindingCard
+              key={`${result.scannedAt}-${item.id}`}
+              finding={item}
+              defaultOpen={item.severity === "critical"}
+              isBuild={isBuild}
+              onOpenPro={onOpenPro}
+            />
           ))}
         </ul>
       )}
 
-      <ExportBar result={result} onOpenPro={onOpenPro} />
+      <ExportBar result={result} isDemo={isDemo} onOpenPro={onOpenPro} />
     </div>
   );
 }

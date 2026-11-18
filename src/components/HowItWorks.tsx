@@ -12,6 +12,10 @@ const CHECKS = [
     body: "/.env and /.git/HEAD reachability (status + file type only), robots.txt, sitemap.xml, security.txt, Server / X-Powered-By version leaks.",
   },
   {
+    title: "App & game builds (.apk / .zip)",
+    body: "Unpacked locally in your browser — nothing is uploaded. Debuggable / cleartext / backup flags in AndroidManifest.xml, bundled keystores, .env and service-account files, source maps, insecure Electron settings and leaked keys.",
+  },
+  {
     title: "Frontend integrity",
     body: "Publicly downloadable source maps, mixed content (http:// assets on https:// pages) and third-party scripts without Subresource Integrity.",
   },

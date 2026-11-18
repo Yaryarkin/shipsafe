@@ -4,7 +4,9 @@ import {
   formatStars,
   isTierId,
   PAYMENT_OPTIONS,
+  PRICE_LIST_USD,
   PRICING_TIERS,
+  TIER_IDS,
   tierLabel,
   type PaymentOption,
   type TierId,
@@ -76,16 +78,19 @@ export interface BuyerInfo {
 
 // ---------------------------------------------------------------- Message builders
 
+const TIERS = TIER_IDS.map((id) => PRICING_TIERS[id]);
+
 export function startMessage(siteUrl: string = SITE_URL): string {
+  const products = TIERS.map((tier) => `$${tier.priceUsd} ${tier.menuLabel}`).join(", ");
   return [
     "ShipSafe Orders bot is active.",
     `Live site: ${siteUrl}`,
-    "You will receive instant notifications here whenever someone submits a $10 Quick Review, $49 Full Audit, or inquiry.",
+    `You will receive instant notifications here whenever someone submits a ${products}, or inquiry.`,
   ].join("\n");
 }
 
 export function statusMessage(siteUrl: string = SITE_URL): string {
-  return `Bot online • Site: ${siteUrl} • Ready to receive $10 / $49 orders.`;
+  return `Bot online • Site: ${siteUrl} • Ready to receive ${PRICE_LIST_USD} orders.`;
 }
 
 /** Inline keyboard button: opens a URL or sends callback data back to the webhook. */
@@ -102,8 +107,7 @@ export const CALLBACK = {
 /** The in-bot payment menu shown under /start: Stars invoices, crypto instructions, and the free scan. */
 export function paymentMenu(siteUrl: string = SITE_URL): InlineButton[][] {
   return [
-    [{ text: `⭐ Quick Review — ${formatStars(PRICING_TIERS.quick.starsAmount)}`, callback_data: CALLBACK.stars("quick") }],
-    [{ text: `⭐ Full Audit — ${formatStars(PRICING_TIERS.full.starsAmount)}`, callback_data: CALLBACK.stars("full") }],
+    ...TIERS.map((tier): InlineButton[] => [{ text: `⭐ ${tier.menuLabel} — ${formatStars(tier.starsAmount)}`, callback_data: CALLBACK.stars(tier.id) }]),
     [
       { text: "Solana (USDT / USDC)", callback_data: CALLBACK.crypto("solana") },
       { text: "Tron (USDT TRC-20)", callback_data: CALLBACK.crypto("tron") },
@@ -114,14 +118,12 @@ export function paymentMenu(siteUrl: string = SITE_URL): InlineButton[][] {
 
 /** Welcome for customers: prices plus the payment menu, so they can pay without leaving Telegram. */
 export function buyerWelcome(siteUrl: string = SITE_URL): { text: string; buttons: InlineButton[][] } {
-  const { quick, full } = PRICING_TIERS;
   return {
     text: [
       "Welcome to ShipSafe Orders.",
-      "Get a human security review of your site:",
+      "Get a human security review of your site, app or game:",
       "",
-      `• ${quick.name} — $${quick.priceUsd} or ${formatStars(quick.starsAmount)} (${quick.delivery})`,
-      `• ${full.name} — $${full.priceUsd} or ${formatStars(full.starsAmount)} (${full.delivery})`,
+      ...TIERS.map((tier) => `• ${tier.name} — $${tier.priceUsd} or ${formatStars(tier.starsAmount)} (${tier.delivery})`),
       "",
       "Choose how to pay below:",
       "⭐ Telegram Stars — card / Apple Pay right here in Telegram",
@@ -135,16 +137,14 @@ function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/** HTML message with the wallet address (tap to copy) and exact amounts for both tiers. */
+/** HTML message with the wallet address (tap to copy) and exact amounts for every tier. */
 export function cryptoInstructions(network: CryptoNetwork): string {
   const option = PAYMENT_OPTIONS.find((candidate) => candidate.id === network);
   if (!option) return "Unknown network.";
-  const { quick, full } = PRICING_TIERS;
   return [
     `<b>Pay with ${escapeHtml(option.network)} — ${escapeHtml(option.assets)}</b>`,
     "",
-    `• ${escapeHtml(quick.name)}: send exactly <b>$${quick.priceUsd}</b>`,
-    `• ${escapeHtml(full.name)}: send exactly <b>$${full.priceUsd}</b>`,
+    ...TIERS.map((tier) => `• ${escapeHtml(tier.name)}: send exactly <b>$${tier.priceUsd}</b>`),
     "",
     "Address (tap to copy):",
     `<code>${escapeHtml(option.address)}</code>`,
@@ -160,9 +160,11 @@ export function cryptoInstructions(network: CryptoNetwork): string {
 
 export const CALLBACK_ERROR = "This button has expired. Send /start to get a fresh menu.";
 
+/** Stars invoice titles / price labels (Telegram limits titles to 32 characters). */
 export const INVOICE_LABELS: Record<TierId, string> = {
   quick: "ShipSafe Quick Review",
-  full: "ShipSafe Full Repo & RLS Audit",
+  fix: "ShipSafe Code & Config Fix Pack",
+  full: "ShipSafe Full Repo & Game Audit",
 };
 
 /** Body for Bot API sendInvoice in Telegram Stars (XTR). provider_token is empty for Stars. */

@@ -77,7 +77,7 @@ describe("owner commands", () => {
       text: [
         "ShipSafe Orders bot is active.",
         "Live site: https://shipsafe-six-iota.vercel.app",
-        "You will receive instant notifications here whenever someone submits a $10 Quick Review, $49 Full Audit, or inquiry.",
+        "You will receive instant notifications here whenever someone submits a $10 Quick Review, $20 Fix Pack, $49 Full Audit, or inquiry.",
       ].join("\n"),
     });
     expect(startMessage(SITE)).toContain("ShipSafe Orders bot is active.");
@@ -87,7 +87,7 @@ describe("owner commands", () => {
     const action = decideWebhookAction(message("/status"), CTX);
     expect(action).toMatchObject({ kind: "sendMessage", chatId: OWNER, reason: "owner status" });
     if (action.kind === "sendMessage") {
-      expect(action.text).toBe("Bot online • Site: https://shipsafe-six-iota.vercel.app • Ready to receive $10 / $49 orders.");
+      expect(action.text).toBe("Bot online • Site: https://shipsafe-six-iota.vercel.app • Ready to receive $10 / $20 / $49 orders.");
       expect(action.text).toBe(statusMessage(SITE));
     }
   });
@@ -116,11 +116,13 @@ describe("customers (any chat)", () => {
     if (action.kind === "sendMessage") {
       expect(action.text).toContain("Welcome to ShipSafe Orders.");
       expect(action.text).toContain("$10 or 500 ⭐");
+      expect(action.text).toContain("Code & Config Fix Pack — $20 or 1,200 ⭐ (within 12 hours)");
       expect(action.text).toContain("$49 or 3,500 ⭐");
       expect(action.text).toContain("Choose how to pay below:");
       expect(action.text).not.toContain("Bot online");
       expect(action.buttons).toEqual([
         [{ text: "⭐ Quick Review — 500 ⭐", callback_data: "stars:quick" }],
+        [{ text: "⭐ Fix Pack — 1,200 ⭐", callback_data: "stars:fix" }],
         [{ text: "⭐ Full Audit — 3,500 ⭐", callback_data: "stars:full" }],
         [
           { text: "Solana (USDT / USDC)", callback_data: "crypto:solana" },
@@ -133,6 +135,7 @@ describe("customers (any chat)", () => {
 
   it.each([
     ["/start pay_quick", "quick"],
+    ["/start pay_fix", "fix"],
     ["/start pay_full", "full"],
   ] as const)("%s from a stranger → sendInvoice(%s)", (text, tier) => {
     expect(decideWebhookAction(message(text, BUYER), CTX)).toEqual({ kind: "sendInvoice", chatId: String(BUYER), tier });
@@ -173,17 +176,26 @@ describe("sendInvoice (Telegram Stars, XTR)", () => {
     });
   });
 
+  it("builds the $20 Fix Pack invoice for 1200 Stars", () => {
+    expect(buildStarsInvoice("42", "fix")).toMatchObject({
+      payload: "fix",
+      currency: "XTR",
+      provider_token: "",
+      prices: [{ label: "ShipSafe Code & Config Fix Pack", amount: 1200 }],
+    });
+  });
+
   it("builds the $49 Full Audit invoice for 3500 Stars", () => {
     expect(buildStarsInvoice("42", "full")).toMatchObject({
       payload: "full",
       currency: "XTR",
       provider_token: "",
-      prices: [{ label: "ShipSafe Full Repo & RLS Audit", amount: 3500 }],
+      prices: [{ label: "ShipSafe Full Repo & Game Audit", amount: 3500 }],
     });
   });
 
   it("stays within Telegram's title (32) and description (255) limits", () => {
-    for (const tier of ["quick", "full"] as const) {
+    for (const tier of ["quick", "fix", "full"] as const) {
       const invoice = buildStarsInvoice("42", tier);
       expect(invoice.title.length).toBeLessThanOrEqual(32);
       expect(invoice.description.length).toBeLessThanOrEqual(255);
@@ -194,6 +206,7 @@ describe("sendInvoice (Telegram Stars, XTR)", () => {
 describe("pre_checkout_query", () => {
   it.each([
     ["quick", 500],
+    ["fix", 1200],
     ["full", 3500],
   ] as const)("approves a valid %s invoice for %i XTR", (payload, amount) => {
     expect(decideWebhookAction(preCheckout(payload, amount), CTX)).toEqual({ kind: "answerPreCheckout", queryId: "pcq-123", ok: true, tier: payload });
@@ -201,6 +214,7 @@ describe("pre_checkout_query", () => {
 
   it.each([
     ["wrong amount", preCheckout("full", 500)],
+    ["fix pack paid at the quick price", preCheckout("fix", 500)],
     ["wrong currency", preCheckout("quick", 500, "USD")],
     ["unknown payload", preCheckout("premium", 500)],
   ])("rejects %s with a clear message", (_, update) => {
@@ -243,7 +257,7 @@ describe("successful_payment", () => {
 
   it("alerts the owner with a NEW PAID ORDER (Telegram Stars) message", () => {
     const text = starsOwnerAlert("SS-7KQ2MX", "full", 3500, BUYER_INFO, "stxCHARGE123", new Date("2026-11-17T10:00:00Z"));
-    expect(text.split("\n")[0]).toBe("NEW PAID ORDER (Telegram Stars) — $49 Full Repo & RLS Audit");
+    expect(text.split("\n")[0]).toBe("NEW PAID ORDER (Telegram Stars) — $49 Full Repo & Game Audit");
     expect(text).toContain("Order ID: SS-7KQ2MX");
     expect(text).toContain("Paid: 3,500 ⭐");
     expect(text).toContain("Buyer: @alex_dev (chat 111222333)");
@@ -275,6 +289,7 @@ function callback(data: string | undefined, chatId: number = BUYER) {
 describe("in-bot payment menu (button presses)", () => {
   it.each([
     ["quick", CALLBACK.stars("quick")],
+    ["fix", CALLBACK.stars("fix")],
     ["full", CALLBACK.stars("full")],
   ] as const)("⭐ %s button → acknowledge + Stars invoice to that chat", (tier, data) => {
     expect(decideWebhookAction(callback(data), CTX)).toEqual({ kind: "callbackInvoice", queryId: "cbq-1", chatId: String(BUYER), tier });
@@ -297,13 +312,14 @@ describe("in-bot payment menu (button presses)", () => {
     expect(CALLBACK_ERROR).toContain("/start");
   });
 
-  it("Solana instructions show only the Solana address, both amounts and what to reply with", () => {
+  it("Solana instructions show only the Solana address, every tier's amount and what to reply with", () => {
     const html = cryptoInstructions("solana");
     expect(html).toContain("<code>CTVymMDpRjPFTrU1Z2QE71MuMGpUqDoybe1x7wDy8rFb</code>");
     expect(html).not.toContain("T9zXkVGBwwLCm3h8HXUSArkfPo7PUjX3Ui");
     expect(html).toContain("send exactly <b>$10</b>");
+    expect(html).toContain("Code &amp; Config Fix Pack: send exactly <b>$20</b>");
     expect(html).toContain("send exactly <b>$49</b>");
-    expect(html).toContain("Full Repo &amp; RLS Audit");
+    expect(html).toContain("Full Repo &amp; Game Audit");
     expect(html).toContain("the transaction hash or explorer link");
   });
 

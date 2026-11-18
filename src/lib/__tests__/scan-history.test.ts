@@ -207,7 +207,7 @@ describe("buildShareText with a scan diff", () => {
 
   it("highlights the upgrade when the score improved", () => {
     expect(buildShareText(94, "A", SITE, { scoreDelta: 32, previousScore: 62 })).toBe(
-      "Upgraded my site from 62 to 94/100 (Grade A) on ShipSafe's 15-second pre-launch security check: https://shipsafe-six-iota.vercel.app",
+      "Upgraded my site from 62 to 94/100 (Grade A) on ShipSafe's 15-second pre-launch security check: https://shipsafe-six-iota.vercel.app/?s=94&g=A&p=62",
     );
   });
 
@@ -217,7 +217,7 @@ describe("buildShareText with a scan diff", () => {
     ["regression", { scoreDelta: -6, previousScore: 100 }],
   ])("falls back to the normal text for %s", (_, diff) => {
     expect(buildShareText(94, "A", SITE, diff)).toBe(
-      "My site scored 94/100 (Grade A) on ShipSafe's 15-second pre-launch security check: https://shipsafe-six-iota.vercel.app",
+      "My site scored 94/100 (Grade A) on ShipSafe's 15-second pre-launch security check: https://shipsafe-six-iota.vercel.app/?s=94&g=A",
     );
   });
 

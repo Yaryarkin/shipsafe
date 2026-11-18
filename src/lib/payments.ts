@@ -4,7 +4,8 @@
  * typo can never silently send customer funds to an unreachable address.
  */
 
-export const TIER_IDS = ["quick", "full"] as const;
+/** Ordered cheapest → most complete; the modal, bot menu and texts are all generated from this list. */
+export const TIER_IDS = ["quick", "fix", "full"] as const;
 export type TierId = (typeof TIER_IDS)[number];
 
 /** API default when no tier is sent — keeps pre-v1.4 clients working as $49 orders. */
@@ -17,6 +18,8 @@ export interface PricingTier {
   name: string;
   /** Short product name used in notifications, logs and receipts, e.g. "$10 Quick Review". */
   shortName: string;
+  /** Compact label for the Telegram bot's payment buttons and status texts, e.g. "Fix Pack". */
+  menuLabel: string;
   priceUsd: number;
   /** Price in Telegram Stars (currency XTR) when paying through @shipsafe_orders_bot. */
   starsAmount: number;
@@ -30,6 +33,7 @@ export const PRICING_TIERS: Readonly<Record<TierId, PricingTier>> = {
     id: "quick",
     name: "Quick Config & Fix Review",
     shortName: "Quick Review",
+    menuLabel: "Quick Review",
     priceUsd: 10,
     starsAmount: 500,
     delivery: "within a few hours",
@@ -40,24 +44,42 @@ export const PRICING_TIERS: Readonly<Record<TierId, PricingTier>> = {
       "Supabase RLS / Firebase rules checklist tailored to your app",
     ],
   },
+  fix: {
+    id: "fix",
+    name: "Code & Config Fix Pack",
+    shortName: "Code & Config Fix Pack",
+    menuLabel: "Fix Pack",
+    priceUsd: 20,
+    starsAmount: 1200,
+    delivery: "within 12 hours",
+    summary: "We write the actual fixes for your top findings, ready to apply.",
+    includes: [
+      "Everything in the Quick Review",
+      "Ready-to-apply fixes for your top findings: headers, CSP, CORS and cookie settings for your stack",
+      "Supabase RLS policies or Firebase Security Rules written for your tables / collections",
+      "Step-by-step apply & verify notes (or a patch you can merge)",
+    ],
+  },
   full: {
     id: "full",
-    name: "Full Repo & RLS Audit",
-    shortName: "Full Repo & RLS Audit",
+    name: "Full Repo & Game Audit",
+    shortName: "Full Repo & Game Audit",
+    menuLabel: "Full Audit",
     priceUsd: 49,
     starsAmount: 3500,
     delivery: "within 24 hours",
-    summary: "A manual audit of your code, API routes and database rules.",
+    summary: "A manual audit of your code, APIs, database rules and game / app builds.",
     includes: [
       "Manual review of your codebase and every API route / server action",
       "Supabase Row-Level Security or Firebase Security Rules check",
+      "Game & mobile builds: APK / WebGL / Electron review, backend and anti-cheat endpoints",
       "Secret hygiene: env vars, client bundles and git history",
       "Prioritized fixes with copy-paste AI prompts",
     ],
   },
 };
 
-/** "$10 Quick Review" / "$49 Full Repo & RLS Audit" */
+/** "$10 Quick Review" / "$20 Code & Config Fix Pack" / "$49 Full Repo & Game Audit" */
 export function tierLabel(id: TierId): string {
   const tier = PRICING_TIERS[id];
   return `$${tier.priceUsd} ${tier.shortName}`;
@@ -95,6 +117,9 @@ export const PAYMENT_METHODS: readonly PaymentMethod[] = [
   { id: "tron", label: "Tron", sublabel: "TRC-20 USDT", kind: "crypto" },
   { id: "stars", label: "Telegram Stars", sublabel: "Card / Apple Pay", kind: "stars" },
 ];
+
+/** "$10 / $20 / $49" */
+export const PRICE_LIST_USD = TIER_IDS.map((id) => `$${PRICING_TIERS[id].priceUsd}`).join(" / ");
 
 /** Lowest tier price, for "from $10" CTAs. */
 export const STARTING_PRICE_USD = Math.min(...TIER_IDS.map((id) => PRICING_TIERS[id].priceUsd));

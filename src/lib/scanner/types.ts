@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const SEVERITIES = ["critical", "warning", "info", "passed"] as const;
-export const CATEGORIES = ["transport", "headers", "exposure", "cors-cookies", "secrets", "frontend"] as const;
+export const CATEGORIES = ["transport", "headers", "exposure", "cors-cookies", "secrets", "frontend", "build"] as const;
 export const GRADES = ["A", "B", "C", "D", "F"] as const;
 
 export const severitySchema = z.enum(SEVERITIES);
@@ -66,4 +66,5 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   "cors-cookies": "CORS & Cookies",
   secrets: "Client Bundle Secrets",
   frontend: "Frontend Integrity",
+  build: "App / Game Build",
 };

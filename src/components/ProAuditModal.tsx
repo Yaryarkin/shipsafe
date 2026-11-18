@@ -211,7 +211,7 @@ export function ProAuditModal({
           full audit of your code and database rules.
         </p>
 
-        <div role="radiogroup" aria-label="Choose an audit" className="mt-4 grid gap-2 sm:grid-cols-2">
+        <div role="radiogroup" aria-label="Choose an audit" className="mt-4 grid gap-2 sm:grid-cols-3">
           {TIER_IDS.map((id) => {
             const option = PRICING_TIERS[id];
             const active = id === tier;

@@ -1,3 +1,4 @@
+import { displayTarget, isBuildTarget } from "@/lib/scan-target";
 import { CATEGORY_LABELS, type ScanResult, type Severity } from "@/lib/scanner/types";
 
 const SEVERITY_LABEL: Record<Severity, string> = {
@@ -15,12 +16,13 @@ function fence(content: string, lang = ""): string {
 }
 
 export function reportToMarkdown(result: ScanResult): string {
-  const host = new URL(result.target).host;
+  const host = displayTarget(result.target);
   const lines: string[] = [
     `# ShipSafe Security Report — ${host}`,
     "",
-    `- **Target:** ${result.target}`,
-    `- **Final URL:** ${result.finalUrl}`,
+    ...(isBuildTarget(result.target)
+      ? [`- **Build:** ${host} (scanned locally in the browser — nothing was uploaded)`]
+      : [`- **Target:** ${result.target}`, `- **Final URL:** ${result.finalUrl}`]),
     `- **Scanned at:** ${new Date(result.scannedAt).toUTCString()}`,
     `- **Scan duration:** ${(result.scanDurationMs / 1000).toFixed(1)}s`,
     `- **Score:** ${result.overallScore}/100 (Grade ${result.grade})`,
@@ -62,7 +64,7 @@ export function reportToMarkdown(result: ScanResult): string {
 }
 
 export function downloadMarkdown(result: ScanResult): void {
-  const host = new URL(result.target).host.replace(/[^a-z0-9.-]/gi, "_");
+  const host = displayTarget(result.target).replace(/[^a-z0-9.-]/gi, "_");
   const date = result.scannedAt.slice(0, 10);
   const blob = new Blob([reportToMarkdown(result)], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);

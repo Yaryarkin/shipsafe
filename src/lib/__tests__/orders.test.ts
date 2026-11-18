@@ -51,12 +51,12 @@ describe("buildOrderReceipt", () => {
     expect(receipt).toContain("Site: https://my-app.com/");
     expect(receipt).toContain("Email: founder@example.com");
     expect(receipt).toContain("Transaction Hash: https://solscan.io/tx/abc123");
-    expect(receipt).toContain("$49 Full Repo & RLS Audit (paid)");
+    expect(receipt).toContain("$49 Full Repo & Game Audit (paid)");
   });
 
   it("marks inquiries as unpaid and handles missing fields", () => {
     const receipt = buildOrderReceipt({ ...base, site: null, txHash: null });
-    expect(receipt).toContain("$49 Full Repo & RLS Audit — inquiry (unpaid)");
+    expect(receipt).toContain("$49 Full Repo & Game Audit — inquiry (unpaid)");
     expect(receipt).toContain("Site: (not provided)");
     expect(receipt).toContain("Transaction Hash: (none)");
   });

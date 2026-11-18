@@ -1,14 +1,26 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LifeBuoy } from "lucide-react";
 import { useId, useState } from "react";
+import { auditOfferFor } from "@/lib/audit-offer";
 import { CATEGORY_LABELS, type Finding } from "@/lib/scanner/types";
 import { CopyButton } from "./CopyButton";
 import { SeverityBadge } from "./SeverityBadge";
 
-export function FindingCard({ finding, defaultOpen = false }: { finding: Finding; defaultOpen?: boolean }) {
+export function FindingCard({
+  finding,
+  defaultOpen = false,
+  isBuild = false,
+  onOpenPro,
+}: {
+  finding: Finding;
+  defaultOpen?: boolean;
+  isBuild?: boolean;
+  onOpenPro?: () => void;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   const panelId = useId();
+  const offer = auditOfferFor(finding, isBuild);
 
   return (
     <li className="overflow-hidden rounded-lg border border-line bg-card transition-colors hover:border-zinc-700">
@@ -51,6 +63,17 @@ export function FindingCard({ finding, defaultOpen = false }: { finding: Finding
               <p className="text-xs text-zinc-400">Paste into Cursor, Claude Code or Copilot to fix this in your codebase.</p>
               <CopyButton text={finding.fixPrompt} />
             </div>
+          )}
+
+          {offer && onOpenPro && (
+            <button
+              type="button"
+              onClick={onOpenPro}
+              className="flex w-full items-center gap-2 rounded-md border border-line bg-ink px-3 py-2.5 text-left text-xs text-zinc-300 transition-colors hover:border-zinc-600 hover:text-fg"
+            >
+              <LifeBuoy className="h-4 w-4 shrink-0 text-emerald-400" aria-hidden="true" />
+              <span>{offer}</span>
+            </button>
           )}
         </div>
       )}

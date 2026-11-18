@@ -5,7 +5,7 @@ import { isValidTxReference, waitlistRequestSchema } from "../waitlist";
 describe("buildShareText", () => {
   it("produces the exact ready-to-post snippet", () => {
     expect(buildShareText(87, "B", "https://shipsafe-six-iota.vercel.app")).toBe(
-      "My site scored 87/100 (Grade B) on ShipSafe's 15-second pre-launch security check: https://shipsafe-six-iota.vercel.app",
+      "My site scored 87/100 (Grade B) on ShipSafe's 15-second pre-launch security check: https://shipsafe-six-iota.vercel.app/?s=87&g=B",
     );
   });
 
