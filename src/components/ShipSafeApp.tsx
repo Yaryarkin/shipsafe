@@ -6,6 +6,7 @@ import { browserStorage, recordScanAndDiff, type ScanDiff } from "@/lib/scan-his
 import { isBuildTarget } from "@/lib/scan-target";
 import { apiErrorSchema, scanResultSchema, type ScanResult } from "@/lib/scanner/types";
 import { HowItWorks } from "./HowItWorks";
+import { MonitoringWaitlist } from "./MonitoringWaitlist";
 import { ProAuditModal } from "./ProAuditModal";
 import { ResultsDashboard } from "./ResultsDashboard";
 import { SCAN_STEPS } from "./ScanProgress";
@@ -229,6 +230,10 @@ export function ShipSafeApp() {
               onOpenPro={openPro}
             />
           )}
+        </div>
+
+        <div className="mt-12">
+          <MonitoringWaitlist defaultSite={result && !isDemo && !isBuildResult ? result.target : undefined} />
         </div>
 
         <div className="mt-16">
