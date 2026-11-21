@@ -1,0 +1,25 @@
+# Manual self-test: runs this repository's own action against the live ShipSafe site.
+name: Action self-test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: shipsafe
+        uses: ./
+        with:
+          url: https://shipsafe-six-iota.vercel.app
+          fail-on: critical
+      - name: Show outputs
+        env:
+          SCORE: ${{ steps.shipsafe.outputs.score }}
+          GRADE: ${{ steps.shipsafe.outputs.grade }}
+          PASSED: ${{ steps.shipsafe.outputs.passed }}
+        run: echo "score=$SCORE grade=$GRADE passed=$PASSED"
