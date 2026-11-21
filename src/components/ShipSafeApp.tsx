@@ -172,33 +172,38 @@ export function ShipSafeApp() {
     if (result && !isDemo && !isBuildTarget(result.target)) void runScan(result.target);
   }, [result, isDemo, runScan]);
 
+  /** History menu: switch to URL mode and re-scan the picked site. */
+  const pickHistory = useCallback(
+    (target: string) => {
+      setMode("url");
+      void runScan(target);
+    },
+    [runScan],
+  );
+
   const openPro = useCallback(() => setProOpen(true), []);
   const closePro = useCallback(() => setProOpen(false), []);
 
   return (
     <>
-      <TopBar onOpenPro={openPro} />
+      <TopBar onOpenPro={openPro} onPickHistory={pickHistory} hasReport={Boolean(result)} />
 
-      <main className="mx-auto max-w-5xl px-4 pb-20 sm:px-6">
-        <section className="pb-10 pt-14 sm:pt-20">
+      <main className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
+        <section id="scan" className="scroll-mt-20 pb-12 pt-14 sm:pt-20">
           <div className="max-w-2xl">
-            <p className="inline-flex items-center gap-2 rounded-full border border-line bg-card px-3 py-1 text-xs text-zinc-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-              Passive scan · ~10 seconds · no signup
-            </p>
-            <h1 className="mt-5 text-3xl font-semibold tracking-tight text-balance sm:text-5xl">
+            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted">Pre-launch security check</p>
+            <h1 className="mt-4 text-[2rem] font-semibold leading-[1.1] tracking-[-0.025em] text-balance sm:text-[2.75rem]">
               Catch leaks before your users do.
             </h1>
-            <p className="mt-4 text-base leading-relaxed text-zinc-400 sm:text-lg">
-              Paste your URL to audit HTTPS, security headers, exposed <span className="font-mono text-zinc-300">.env</span>{" "}
-              / <span className="font-mono text-zinc-300">.git</span> files, CORS, cookies and API keys hiding in your
-              JavaScript bundles — or drop an <span className="font-mono text-zinc-300">.apk</span> /{" "}
-              <span className="font-mono text-zinc-300">.zip</span> game or app build to check it right in your browser. Every
-              issue comes with a copy-paste AI fix prompt.
+            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted sm:text-base">
+              Audit HTTPS, security headers, exposed <span className="font-mono text-soft">.env</span> /{" "}
+              <span className="font-mono text-soft">.git</span> files, CORS, cookies and keys in your JavaScript bundles — or inspect an{" "}
+              <span className="font-mono text-soft">.apk</span> / <span className="font-mono text-soft">.zip</span> build locally.
+              Every finding ships with a copy-paste fix.
             </p>
           </div>
 
-          <div className="mt-8 max-w-3xl">
+          <div className="mt-9 max-w-3xl">
             <ScannerForm
               mode={mode}
               onModeChange={(next) => {
@@ -218,7 +223,7 @@ export function ShipSafeApp() {
           </div>
         </section>
 
-        <div ref={resultsRef} className="scroll-mt-20">
+        <div ref={resultsRef} id="report" className="scroll-mt-20">
           {result && (
             <ResultsDashboard
               key={`${result.scannedAt}-${isDemo}`}
@@ -232,17 +237,17 @@ export function ShipSafeApp() {
           )}
         </div>
 
-        <div className="mt-12">
+        <div className="mt-16">
           <MonitoringWaitlist defaultSite={result && !isDemo && !isBuildResult ? result.target : undefined} />
         </div>
 
-        <div className="mt-16">
+        <div className="mt-20">
           <HowItWorks />
         </div>
       </main>
 
       <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-6 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-faint sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <span>ShipSafe — pre-launch security &amp; config audit for builders.</span>
           <span>Results are informational and not a substitute for a professional penetration test.</span>
         </div>

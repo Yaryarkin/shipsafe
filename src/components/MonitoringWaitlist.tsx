@@ -13,7 +13,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const REQUEST_TIMEOUT_MS = 15_000;
 
 const inputClass =
-  "h-10 w-full min-w-0 rounded-md border border-line bg-ink px-3 text-sm text-fg placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none disabled:opacity-60";
+  "h-10 w-full min-w-0 rounded-md border border-line bg-raised px-3 text-sm text-fg placeholder:text-faint focus:border-focus focus:outline-none disabled:opacity-60";
 
 function normalizeSite(raw: string): string | undefined | "invalid" {
   const value = raw.trim();
@@ -77,17 +77,17 @@ export function MonitoringWaitlist({ defaultSite }: { defaultSite?: string }) {
         <h2 id="monitoring-title" className="text-base font-semibold">
           Continuous monitoring
         </h2>
-        <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-medium text-emerald-400">
+        <span className="rounded border border-line bg-raised px-1.5 py-0.5 text-[11px] font-medium text-soft">
           Coming soon
         </span>
       </div>
-      <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-zinc-400">
+      <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted">
         A single scan is a snapshot. We&apos;re building automatic re-scans that alert you the moment something new leaks. Join the
-        waitlist to get early access — <strong className="font-medium text-zinc-200">free, no payment, no spam</strong>.
+        waitlist to get early access — <strong className="font-medium text-soft">free, no payment, no spam</strong>.
       </p>
 
       {status === "done" ? (
-        <p className="mt-4 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300" role="status">
+        <p className="mt-4 rounded-md border border-safe/25 bg-safe/10 p-3 text-sm text-safe" role="status">
           You&apos;re on the list. We&apos;ll email you once when early access opens.
         </p>
       ) : (
@@ -101,15 +101,15 @@ export function MonitoringWaitlist({ defaultSite }: { defaultSite?: string }) {
                 <label
                   key={id}
                   className={`cursor-pointer rounded-md border p-3 text-sm transition-colors ${
-                    selected ? "border-emerald-500/60 bg-emerald-500/5" : "border-line bg-ink hover:border-zinc-600"
+                    selected ? "border-fg/35 bg-card" : "border-line bg-raised hover:border-line-strong"
                   }`}
                 >
                   <input type="radio" name="monitoring-plan" value={id} checked={selected} onChange={() => setPlan(id)} className="sr-only" />
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-medium">{item.label}</span>
-                    <span className="text-xs text-zinc-500">{item.planned}</span>
+                    <span className="text-xs text-muted">{item.planned}</span>
                   </span>
-                  <span className="mt-1 block text-xs leading-relaxed text-zinc-400">{item.blurb}</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-muted">{item.blurb}</span>
                 </label>
               );
             })}
@@ -140,7 +140,7 @@ export function MonitoringWaitlist({ defaultSite }: { defaultSite?: string }) {
             <button
               type="submit"
               disabled={status === "submitting"}
-              className="h-10 rounded-md bg-emerald-500 px-4 text-sm font-semibold text-emerald-950 transition-colors hover:bg-emerald-400 disabled:opacity-60"
+              className="h-10 rounded-md bg-fg px-4 text-sm font-semibold text-ink transition-colors hover:bg-accent disabled:opacity-60"
             >
               {status === "submitting" ? "Sending…" : "Join the waitlist"}
             </button>

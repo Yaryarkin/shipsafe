@@ -38,21 +38,21 @@ const NEVER = [
 export function HowItWorks() {
   return (
     <section id="docs" aria-labelledby="docs-title" className="scroll-mt-20 border-t border-line pt-12">
-      <h2 id="docs-title" className="text-sm font-medium uppercase tracking-wide text-zinc-500">
+      <h2 id="docs-title" className="text-sm font-medium uppercase tracking-wide text-muted">
         What ShipSafe checks
       </h2>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {CHECKS.map((check) => (
           <div key={check.title} className="rounded-lg border border-line bg-card p-4">
             <h3 className="text-sm font-medium">{check.title}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-zinc-400">{check.body}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted">{check.body}</p>
           </div>
         ))}
         <div className="rounded-lg border border-dashed border-line p-4">
           <h3 className="text-sm font-medium">What it never does</h3>
           <ul className="mt-1.5 space-y-1.5">
             {NEVER.map((item) => (
-              <li key={item} className="text-sm leading-relaxed text-zinc-400">
+              <li key={item} className="text-sm leading-relaxed text-muted">
                 {item}
               </li>
             ))}
