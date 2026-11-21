@@ -1,0 +1,53 @@
+name: ShipSafe Security Check
+description: Scan your deployed site for leaked keys, exposed .env / .git files, weak headers and more, and fail the job on critical issues.
+author: Yaryarkin
+branding:
+  icon: shield
+  color: gray-dark
+
+inputs:
+  url:
+    description: The deployed site to scan, e.g. https://your-app.com. Only scan sites you own or have permission to check.
+    required: true
+  fail-on:
+    description: "Fail the job on: critical (default), warning (critical or warning), or none (report only)."
+    required: false
+    default: critical
+  min-score:
+    description: Also fail when the score is below this number (0 disables the check).
+    required: false
+    default: "0"
+  api-url:
+    description: ShipSafe API base URL. Leave the default unless you host your own instance.
+    required: false
+    default: https://shipsafe-six-iota.vercel.app
+
+outputs:
+  score:
+    description: Security score, 0-100.
+    value: ${{ steps.scan.outputs.score }}
+  grade:
+    description: Letter grade, A-F.
+    value: ${{ steps.scan.outputs.grade }}
+  critical:
+    description: Number of critical findings.
+    value: ${{ steps.scan.outputs.critical }}
+  warnings:
+    description: Number of warning findings.
+    value: ${{ steps.scan.outputs.warnings }}
+  passed:
+    description: "true when the check passed your fail-on / min-score rules."
+    value: ${{ steps.scan.outputs.passed }}
+
+runs:
+  using: composite
+  steps:
+    - id: scan
+      shell: bash
+      # Inputs go through the environment (never interpolated into the script) to avoid script injection.
+      env:
+        INPUT_URL: ${{ inputs.url }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_MIN_SCORE: ${{ inputs.min-score }}
+        INPUT_API_URL: ${{ inputs.api-url }}
+      run: node "$GITHUB_ACTION_PATH/action/check.mjs"

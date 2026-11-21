@@ -1,0 +1,23 @@
+# Copy this file to .github/workflows/shipsafe.yml in your own repository and set your site URL.
+#
+# It scans your deployed site after every successful deployment (Vercel, Netlify and others report
+# a deployment_status event), once a day, and on demand. The job fails when a critical issue appears.
+name: ShipSafe
+
+on:
+  deployment_status:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  scan:
+    # For deployment events, only run once the deployment actually succeeded.
+    if: github.event_name != 'deployment_status' || github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Yaryarkin/shipsafe@main
+        with:
+          url: https://your-app.com
+          fail-on: critical # critical | warning | none
+          min-score: "0" # e.g. "80" to also fail on a low score

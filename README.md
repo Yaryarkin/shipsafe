@@ -86,6 +86,27 @@ The free scan sees what the public sees. For a look inside your code, database r
 
 ---
 
+## GitHub Action — fail the build on a leak
+
+Add ShipSafe to CI so a leaked key or an exposed `.env` never reaches your users unnoticed. The action scans your deployed site and fails the job on critical issues. It writes a summary to the job page, annotates each finding, and exposes `score`, `grade`, `critical`, `warnings` and `passed` as outputs.
+
+```yaml
+- uses: Yaryarkin/shipsafe@main
+  with:
+    url: https://your-app.com
+    fail-on: critical   # critical (default) | warning | none
+    min-score: "80"     # optional: also fail below this score
+```
+
+A ready-made workflow (scan after each deployment, plus a daily run) lives in [`examples/shipsafe-check.yml`](examples/shipsafe-check.yml).
+
+- **Privacy:** only the URL you pass is sent to the ShipSafe API; the scan is passive (GET / HEAD requests). Inputs go through environment variables, never into a shell script. Scan only sites you own.
+- **Reliable on shared runners:** a rate-limited (`429`) or failed call is retried, and a scan that can't run fails the job instead of silently passing.
+- **Self-hosted:** set `api-url` to your own deployment of this repository.
+- **Pinning:** for stricter supply-chain hygiene, reference a commit SHA instead of `@main`.
+
+---
+
 ## Quick start
 
 Requires **Node.js 20.9+** (production runs on Node 22).
@@ -93,7 +114,7 @@ Requires **Node.js 20.9+** (production runs on Node 22).
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 348 Vitest unit tests
+npm test         # 392 Vitest unit tests
 ```
 
 Other scripts: `npm run build`, `npm start`, `npm run typecheck` (`tsc --noEmit`, strict + `noUncheckedIndexedAccess`), `npm run lint`.
@@ -132,6 +153,9 @@ Never prefix server secrets with `NEXT_PUBLIC_`.
 ## Project structure
 
 ```
+action.yml                                             # GitHub Action (composite) — see "GitHub Action" above
+action/check.mjs                                       # the action's scan + pass/fail logic (dependency-free)
+examples/shipsafe-check.yml                            # copy-paste workflow
 src/
 ├── app/
 │   ├── api/scan, api/waitlist, api/telegram/webhook   # server routes
@@ -154,7 +178,7 @@ src/
     └── payments.ts, waitlist.ts, receipt.ts, order-id.ts, order-notifications.ts, telegram.ts, telegram-webhook.ts
 ```
 
-Tests live next to the code in `__tests__/` folders — **348 Vitest tests** covering SSRF guards, scoring, every web and build check (including a binary-manifest fixture encoder), secret masking, OG / badge parameter validation and XSS safety, share links, payments and the Telegram bot.
+Tests live next to the code in `__tests__/` folders — **392 Vitest tests** covering SSRF guards, scoring, every web and build check (including a binary-manifest fixture encoder), secret masking, OG / badge parameter validation and XSS safety, share links, payments and the Telegram bot.
 
 ShipSafe ships the headers it audits for (CSP, HSTS, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`) and disables `X-Powered-By`.
 
