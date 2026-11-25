@@ -11,6 +11,14 @@ import {
   type PaymentOption,
   type TierId,
 } from "@/lib/payments";
+import {
+  buildInvoicePayload,
+  discountedStars,
+  discountedUsd,
+  formatUsd,
+  parseInvoicePayload,
+  parseReferralPayload,
+} from "@/lib/referrals";
 import { SITE_URL } from "@/lib/share";
 
 /**
@@ -98,39 +106,115 @@ export type InlineButton = { text: string; url: string } | { text: string; callb
 
 export type CryptoNetwork = PaymentOption["id"];
 
-/** Callback data sent by the payment menu buttons (≤ 64 bytes, as Telegram requires). */
+/** Callback data sent by the menu buttons (≤ 64 bytes, as Telegram requires). */
 export const CALLBACK = {
   stars: (tier: TierId) => `stars:${tier}`,
   crypto: (network: CryptoNetwork) => `crypto:${network}`,
+  menu: (menu: BotMenu) => `menu:${menu}`,
 } as const;
 
-/** The in-bot payment menu shown under /start: Stars invoices, crypto instructions, and the free scan. */
-export function paymentMenu(siteUrl: string = SITE_URL): InlineButton[][] {
+export type BotMenu = "start" | "prices" | "referral";
+const BOT_MENUS: readonly BotMenu[] = ["start", "prices", "referral"];
+
+/** The commands shown in Telegram's "/" menu. Registered with setMyCommands. */
+export const BOT_COMMANDS = [
+  { command: "start", description: "Start: what this bot does" },
+  { command: "prices", description: "Prices for human reviews" },
+  { command: "referral", description: "Invite friends, get up to 50% off" },
+] as const;
+
+/** Telegram limits: description 512 characters, short description 120, command description 256. */
+export const BOT_DESCRIPTION_LIMIT = 512;
+export const BOT_SHORT_DESCRIPTION_LIMIT = 120;
+
+export interface BotProfile {
+  /** Undefined = the default (English) profile; "ru" is shown to Russian-speaking users. */
+  languageCode?: string;
+  commands: ReadonlyArray<{ command: string; description: string }>;
+  /** Shown on the empty chat screen before the user presses Start: what this bot does. */
+  description: string;
+  /** Shown on the bot's profile page and when the bot is shared. */
+  shortDescription: string;
+}
+
+export const BOT_PROFILES: readonly BotProfile[] = [
+  {
+    commands: BOT_COMMANDS,
+    description: [
+      "ShipSafe checks your website, API, app or game for security leaks before you launch.",
+      "",
+      "Here you can:",
+      "• order a human security review (from $10) with ready-to-apply fixes",
+      "• pay with Telegram Stars or crypto (USDT / USDC)",
+      "• see all prices with /prices",
+      "• invite friends and get up to 50% off with /referral",
+      "",
+      "The free instant scan is on our site. Press Start to begin.",
+    ].join("\n"),
+    shortDescription: "Human security reviews for your site, app or game. Pay with Stars or crypto. Invite friends, get up to 50% off.",
+  },
+  {
+    languageCode: "ru",
+    commands: [
+      { command: "start", description: "Старт: что умеет бот" },
+      { command: "prices", description: "Цены на проверки" },
+      { command: "referral", description: "Приглашай друзей, скидка до 50%" },
+    ],
+    description: [
+      "ShipSafe проверяет ваш сайт, API, приложение или игру на утечки и дыры в безопасности до запуска.",
+      "",
+      "Здесь можно:",
+      "• заказать проверку живым специалистом (от $10) с готовыми исправлениями",
+      "• оплатить звёздами Telegram или криптой (USDT / USDC)",
+      "• посмотреть цены: /prices",
+      "• приглашать друзей и получать скидку до 50%: /referral",
+      "",
+      "Бесплатная быстрая проверка есть на нашем сайте. Нажмите Start, чтобы начать.",
+    ].join("\n"),
+    shortDescription: "Проверка безопасности сайта, приложения или игры специалистом. Оплата звёздами или криптой. Скидка до 50% за друзей.",
+  },
+];
+
+/** The main menu under /start: prices, referral, and the free scan. */
+export function startMenu(siteUrl: string = SITE_URL): InlineButton[][] {
   return [
-    ...TIERS.map((tier): InlineButton[] => [{ text: `⭐ ${tier.menuLabel} — ${formatStars(tier.starsAmount)}`, callback_data: CALLBACK.stars(tier.id) }]),
     [
-      { text: "Solana (USDT / USDC)", callback_data: CALLBACK.crypto("solana") },
-      { text: "Tron (USDT TRC-20)", callback_data: CALLBACK.crypto("tron") },
+      { text: "💰 Prices", callback_data: CALLBACK.menu("prices") },
+      { text: "🎁 Referral", callback_data: CALLBACK.menu("referral") },
     ],
     [{ text: "Free security scan on the site", url: siteUrl }],
   ];
 }
 
-/** Welcome for customers: prices plus the payment menu, so they can pay without leaving Telegram. */
-export function buyerWelcome(siteUrl: string = SITE_URL): { text: string; buttons: InlineButton[][] } {
-  return {
-    text: [
-      "Welcome to ShipSafe Orders.",
-      "Get a human security review of your site, app or game:",
-      "",
-      ...TIERS.map((tier) => `• ${tier.name} — $${tier.priceUsd} or ${formatStars(tier.starsAmount)} (${tier.delivery})`),
-      "",
-      "Choose how to pay below:",
-      "⭐ Telegram Stars — card / Apple Pay right here in Telegram",
-      "Solana or Tron — pay in USDT / USDC",
-    ].join("\n"),
-    buttons: paymentMenu(siteUrl),
-  };
+/** The payment menu shown with the prices: Stars invoices (at the discounted price), crypto instructions, and the way back. */
+export function paymentMenu(siteUrl: string = SITE_URL, percent = 0): InlineButton[][] {
+  return [
+    ...TIERS.map((tier): InlineButton[] => [
+      { text: `⭐ ${tier.menuLabel} — ${formatStars(discountedStars(tier.starsAmount, percent))}`, callback_data: CALLBACK.stars(tier.id) },
+    ]),
+    [
+      { text: "Solana (USDT / USDC)", callback_data: CALLBACK.crypto("solana") },
+      { text: "Tron (USDT TRC-20)", callback_data: CALLBACK.crypto("tron") },
+    ],
+    [
+      { text: "🎁 Referral", callback_data: CALLBACK.menu("referral") },
+      { text: "Free scan", url: siteUrl },
+    ],
+  ];
+}
+
+/** Short welcome. Prices and the referral program live behind their own buttons and commands. */
+export function startIntro(options: { invited?: boolean } = {}): string {
+  return [
+    "Welcome to ShipSafe Orders.",
+    "We review the security of your site, app or game and send ready-to-apply fixes.",
+    ...(options.invited ? ["", "You joined through a friend's link, so they just got a discount. Thank you!"] : []),
+    "",
+    "/prices: what a review costs",
+    "/referral: invite friends, get up to 50% off",
+    "",
+    "Or use the buttons below.",
+  ].join("\n");
 }
 
 function escapeHtml(value: string): string {
@@ -138,13 +222,17 @@ function escapeHtml(value: string): string {
 }
 
 /** HTML message with the wallet address (tap to copy) and exact amounts for every tier. */
-export function cryptoInstructions(network: CryptoNetwork): string {
+export function cryptoInstructions(network: CryptoNetwork, percent = 0): string {
   const option = PAYMENT_OPTIONS.find((candidate) => candidate.id === network);
   if (!option) return "Unknown network.";
   return [
     `<b>Pay with ${escapeHtml(option.network)} — ${escapeHtml(option.assets)}</b>`,
     "",
-    ...TIERS.map((tier) => `• ${escapeHtml(tier.name)}: send exactly <b>$${tier.priceUsd}</b>`),
+    ...TIERS.map((tier) =>
+      percent > 0
+        ? `• ${escapeHtml(tier.name)}: send exactly <b>${formatUsd(discountedUsd(tier.priceUsd, percent))}</b> (${percent}% referral discount, list price $${tier.priceUsd})`
+        : `• ${escapeHtml(tier.name)}: send exactly <b>$${tier.priceUsd}</b>`,
+    ),
     "",
     "Address (tap to copy):",
     `<code>${escapeHtml(option.address)}</code>`,
@@ -168,16 +256,17 @@ export const INVOICE_LABELS: Record<TierId, string> = {
 };
 
 /** Body for Bot API sendInvoice in Telegram Stars (XTR). provider_token is empty for Stars. */
-export function buildStarsInvoice(chatId: string, tier: TierId) {
+export function buildStarsInvoice(chatId: string, tier: TierId, percent = 0) {
   const product = PRICING_TIERS[tier];
+  const amount = discountedStars(product.starsAmount, percent);
   return {
     chat_id: chatId,
     title: INVOICE_LABELS[tier],
-    description: `${product.name}: ${product.summary} Delivered ${product.delivery}. After paying, reply here with your email and site URL.`,
-    payload: tier,
+    description: `${product.name}: ${product.summary} Delivered ${product.delivery}.${percent > 0 ? ` Includes your ${percent}% referral discount.` : ""} After paying, reply here with your email and site URL.`.slice(0, 255),
+    payload: buildInvoicePayload(tier, percent),
     provider_token: "",
     currency: "XTR",
-    prices: [{ label: INVOICE_LABELS[tier], amount: product.starsAmount }],
+    prices: [{ label: INVOICE_LABELS[tier], amount }],
   };
 }
 
@@ -186,15 +275,16 @@ function describeBuyer(buyer: BuyerInfo): string {
   return `${name} (chat ${buyer.chatId})`;
 }
 
-function productLine(tier: TierId | null, amount: number): string {
-  return tier ? `${tierLabel(tier)} (${formatStars(amount)})` : `Unknown product (${formatStars(amount)})`;
+function productLine(tier: TierId | null, amount: number, percent = 0): string {
+  const discount = percent > 0 ? `, ${percent}% referral discount` : "";
+  return tier ? `${tierLabel(tier)} (${formatStars(amount)}${discount})` : `Unknown product (${formatStars(amount)})`;
 }
 
-export function starsBuyerConfirmation(orderId: string, tier: TierId | null, amount: number): string {
+export function starsBuyerConfirmation(orderId: string, tier: TierId | null, amount: number, percent = 0): string {
   return [
     "Payment received — thank you!",
     `Order ID: ${orderId}`,
-    `Product: ${productLine(tier, amount)}`,
+    `Product: ${productLine(tier, amount, percent)}`,
     "",
     "Please reply to this message with your email and the site URL to audit, so we can deliver your review.",
   ].join("\n");
@@ -207,12 +297,13 @@ export function starsOwnerAlert(
   buyer: BuyerInfo,
   chargeId: string,
   now: Date = new Date(),
+  percent = 0,
 ): string {
   return [
     `NEW PAID ORDER (Telegram Stars) — ${tier ? tierLabel(tier) : "unknown tier"}`,
     "",
     `Order ID: ${orderId}`,
-    `Paid: ${formatStars(amount)}`,
+    `Paid: ${formatStars(amount)}${percent > 0 ? ` (${percent}% referral discount)` : ""}`,
     `Buyer: ${describeBuyer(buyer)}`,
     `Charge ID: ${chargeId}`,
     `Time: ${now.toISOString()}`,
@@ -227,8 +318,8 @@ export function buyerMessageForward(buyer: BuyerInfo, text: string): string {
 
 export const BUYER_ACK = "Thanks — got it. We'll get back to you by email or here.";
 
-export function starsLogLine(orderId: string, tier: TierId | null, amount: number, buyer: BuyerInfo, chargeId: string): string {
-  return `[shipsafe] pro paid order (stars) ${orderId} [${tier ? tierLabel(tier) : "unknown tier"} · ${amount} XTR]: ${describeBuyer(buyer)} · charge: ${chargeId}`;
+export function starsLogLine(orderId: string, tier: TierId | null, amount: number, buyer: BuyerInfo, chargeId: string, percent = 0): string {
+  return `[shipsafe] pro paid order (stars) ${orderId} [${tier ? tierLabel(tier) : "unknown tier"} · ${amount} XTR${percent > 0 ? ` · -${percent}% referral` : ""}]: ${describeBuyer(buyer)} · charge: ${chargeId}`;
 }
 
 // ---------------------------------------------------------------- Decision
@@ -252,14 +343,18 @@ export function tierFromStartPayload(payload: string | null): TierId | null {
 }
 
 export type WebhookAction =
-  | { kind: "sendMessage"; chatId: string; text: string; buttons?: InlineButton[][]; reason: "owner start" | "owner status" | "buyer welcome" }
-  | { kind: "sendInvoice"; chatId: string; tier: TierId }
-  | { kind: "callbackInvoice"; queryId: string; chatId: string; tier: TierId }
-  | { kind: "callbackCrypto"; queryId: string; chatId: string; network: CryptoNetwork; html: string }
+  | { kind: "sendMessage"; chatId: string; text: string; buttons?: InlineButton[][]; reason: "owner status" }
+  | { kind: "start"; chatId: string; userId: number | null; referrerId: number | null; isOwner: boolean }
+  | { kind: "prices"; chatId: string; userId: number | null }
+  | { kind: "referral"; chatId: string; userId: number | null }
+  | { kind: "callbackMenu"; queryId: string; chatId: string; userId: number | null; menu: BotMenu }
+  | { kind: "sendInvoice"; chatId: string; userId: number | null; tier: TierId }
+  | { kind: "callbackInvoice"; queryId: string; chatId: string; userId: number | null; tier: TierId }
+  | { kind: "callbackCrypto"; queryId: string; chatId: string; userId: number | null; network: CryptoNetwork }
   | { kind: "callbackExpired"; queryId: string }
-  | { kind: "answerPreCheckout"; queryId: string; ok: true; tier: TierId }
+  | { kind: "answerPreCheckout"; queryId: string; ok: true; tier: TierId; percent: number }
   | { kind: "answerPreCheckout"; queryId: string; ok: false; errorMessage: string }
-  | { kind: "starsPayment"; buyer: BuyerInfo; tier: TierId | null; amount: number; chargeId: string; currencyOk: boolean }
+  | { kind: "starsPayment"; buyer: BuyerInfo; tier: TierId | null; amount: number; chargeId: string; currencyOk: boolean; percent: number }
   | { kind: "forwardBuyerMessage"; buyer: BuyerInfo; text: string }
   | {
       kind: "ignore";
@@ -284,9 +379,10 @@ export function decideWebhookAction(payload: unknown, context: WebhookContext = 
   // 1. Pre-checkout: approve only invoices that match our own prices exactly.
   const query = update.pre_checkout_query;
   if (query) {
-    const tier = isTierId(query.invoice_payload) ? query.invoice_payload : null;
-    if (tier && query.currency === "XTR" && query.total_amount === PRICING_TIERS[tier].starsAmount) {
-      return { kind: "answerPreCheckout", queryId: query.id, ok: true, tier };
+    // The payload is "tier" or "tier:percent", set by this bot. The amount must match the discounted price exactly.
+    const invoice = parseInvoicePayload(query.invoice_payload);
+    if (invoice && query.currency === "XTR" && query.total_amount === discountedStars(PRICING_TIERS[invoice.tier].starsAmount, invoice.percent)) {
+      return { kind: "answerPreCheckout", queryId: query.id, ok: true, tier: invoice.tier, percent: invoice.percent };
     }
     return { kind: "answerPreCheckout", queryId: query.id, ok: false, errorMessage: PRE_CHECKOUT_ERROR };
   }
@@ -295,12 +391,13 @@ export function decideWebhookAction(payload: unknown, context: WebhookContext = 
   const callback = update.callback_query;
   if (callback) {
     const chatId = String(callback.message?.chat.id ?? callback.from.id);
+    const userId = callback.from.id;
     const [kind, value] = (callback.data ?? "").split(":");
-    if (kind === "stars" && isTierId(value)) return { kind: "callbackInvoice", queryId: callback.id, chatId, tier: value };
+    if (kind === "stars" && isTierId(value)) return { kind: "callbackInvoice", queryId: callback.id, chatId, userId, tier: value };
+    const menu = BOT_MENUS.find((candidate) => candidate === value);
+    if (kind === "menu" && menu) return { kind: "callbackMenu", queryId: callback.id, chatId, userId, menu };
     const network = PAYMENT_OPTIONS.find((option) => option.id === value)?.id;
-    if (kind === "crypto" && network) {
-      return { kind: "callbackCrypto", queryId: callback.id, chatId, network, html: cryptoInstructions(network) };
-    }
+    if (kind === "crypto" && network) return { kind: "callbackCrypto", queryId: callback.id, chatId, userId, network };
     return { kind: "callbackExpired", queryId: callback.id };
   }
 
@@ -319,10 +416,12 @@ export function decideWebhookAction(payload: unknown, context: WebhookContext = 
   // 2. Successful payment: money has moved — always record it, even if something looks off.
   const payment = message.successful_payment;
   if (payment) {
+    const paid = parseInvoicePayload(payment.invoice_payload);
     return {
       kind: "starsPayment",
       buyer,
-      tier: isTierId(payment.invoice_payload) ? payment.invoice_payload : null,
+      tier: paid?.tier ?? null,
+      percent: paid?.percent ?? 0,
       amount: payment.total_amount,
       chargeId: payment.telegram_payment_charge_id,
       currencyOk: payment.currency === "XTR",
@@ -332,13 +431,13 @@ export function decideWebhookAction(payload: unknown, context: WebhookContext = 
   // 3. Commands.
   const command = parseCommand(message.text);
   if (command === "/start") {
-    const tier = tierFromStartPayload(parseStartPayload(message.text));
-    if (tier) return { kind: "sendInvoice", chatId, tier };
-    // The owner gets their status message plus the same payment menu customers see.
-    if (isOwner) return { kind: "sendMessage", chatId, text: startMessage(siteUrl), buttons: paymentMenu(siteUrl), reason: "owner start" };
-    const welcome = buyerWelcome(siteUrl);
-    return { kind: "sendMessage", chatId, text: welcome.text, buttons: welcome.buttons, reason: "buyer welcome" };
+    const payload = parseStartPayload(message.text);
+    const tier = tierFromStartPayload(payload);
+    if (tier) return { kind: "sendInvoice", chatId, userId: buyer.userId, tier };
+    return { kind: "start", chatId, userId: buyer.userId, referrerId: parseReferralPayload(payload), isOwner };
   }
+  if (command === "/prices") return { kind: "prices", chatId, userId: buyer.userId };
+  if (command === "/referral" || command === "/invite") return { kind: "referral", chatId, userId: buyer.userId };
   if (command === "/status") {
     return isOwner
       ? { kind: "sendMessage", chatId, text: statusMessage(siteUrl), reason: "owner status" }

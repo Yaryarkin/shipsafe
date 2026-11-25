@@ -3,8 +3,25 @@ import { generateOrderId } from "@/lib/order-id";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { callTelegramApi, telegramTokenFromEnv } from "@/lib/telegram";
 import {
+  discountPercent,
+  pricesText,
+  referralLink,
+  referralStoreFromEnv,
+  referralText,
+  referrerNotification,
+  type ReferralStore,
+} from "@/lib/referrals";
+import { SITE_URL } from "@/lib/share";
+import {
+  BOT_PROFILES,
   BUYER_ACK,
   CALLBACK_ERROR,
+  cryptoInstructions,
+  paymentMenu,
+  startIntro,
+  startMenu,
+  startMessage,
+  type BotMenu,
   buildStarsInvoice,
   buyerMessageForward,
   decideWebhookAction,
@@ -35,9 +52,62 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : "unknown error";
 }
 
+/**
+ * Keeps the bot's public profile up to date, once per server instance: the "/" command menu
+ * (Start, Prices, Referral), the description shown before Start, and the short description on the
+ * profile page, in English and Russian. Failures are logged and retried on a later request.
+ */
+let profileRegistered = false;
+async function ensureBotProfile(token: string): Promise<void> {
+  if (profileRegistered) return;
+  profileRegistered = true;
+  const timeouts = { timeoutsMs: [3_000] };
+  const calls = BOT_PROFILES.flatMap((profile) => {
+    const language = profile.languageCode ? { language_code: profile.languageCode } : {};
+    return [
+      callTelegramApi(token, "setMyCommands", { commands: profile.commands, ...language }, timeouts),
+      callTelegramApi(token, "setMyDescription", { description: profile.description, ...language }, timeouts),
+      callTelegramApi(token, "setMyShortDescription", { short_description: profile.shortDescription, ...language }, timeouts),
+    ];
+  });
+  const results = await Promise.allSettled(calls);
+  const failed = results.filter((result) => result.status === "rejected");
+  if (failed.length > 0) {
+    profileRegistered = false;
+    console.error(`[shipsafe] bot profile: ${failed.length} of ${results.length} calls failed`);
+  }
+}
+
+/** Referral discount for a user. Any store problem falls back to the full price, never to a wrong discount. */
+async function discountFor(store: ReferralStore | null, userId: number | null): Promise<number> {
+  if (!store || userId === null) return 0;
+  try {
+    return discountPercent(await store.friendCount(userId));
+  } catch (error) {
+    console.error(`[shipsafe] referral lookup failed: ${errorText(error)}`);
+    return 0;
+  }
+}
+
 async function execute(action: Exclude<WebhookAction, { kind: "ignore" }>, token: string, ownerChatId: string | null): Promise<void> {
   const send = (chatId: string, text: string, extra: Record<string, unknown> = {}) =>
     callTelegramApi(token, "sendMessage", { chat_id: chatId, text, disable_web_page_preview: true, ...extra });
+  const store = referralStoreFromEnv();
+
+  const sendPrices = async (chatId: string, userId: number | null) => {
+    const percent = await discountFor(store, userId);
+    await send(chatId, pricesText(percent), { reply_markup: { inline_keyboard: paymentMenu(SITE_URL, percent) } });
+  };
+  const sendReferral = async (chatId: string, userId: number | null) => {
+    if (userId === null) return;
+    const friends = store ? await store.friendCount(userId).catch(() => 0) : 0;
+    await send(chatId, referralText({ enabled: store !== null, friends, link: referralLink(userId) }));
+  };
+  const sendMenu = async (menu: BotMenu, chatId: string, userId: number | null) => {
+    if (menu === "prices") return sendPrices(chatId, userId);
+    if (menu === "referral") return sendReferral(chatId, userId);
+    await send(chatId, startIntro(), { reply_markup: { inline_keyboard: startMenu(SITE_URL) } });
+  };
 
   switch (action.kind) {
     case "answerPreCheckout": {
@@ -49,9 +119,50 @@ async function execute(action: Exclude<WebhookAction, { kind: "ignore" }>, token
       return;
     }
 
+    case "start": {
+      // The first /start ever can credit a referrer. The friend is told, and so is the referrer.
+      let invited = false;
+      if (store && action.userId !== null) {
+        try {
+          const result = await store.registerStart(action.userId, action.referrerId);
+          invited = result.credited;
+          if (result.credited && action.referrerId !== null && result.referrerFriends !== null) {
+            await send(String(action.referrerId), referrerNotification(result.referrerFriends)).catch((error: unknown) =>
+              console.error(`[shipsafe] referrer notification failed: ${errorText(error)}`),
+            );
+            console.info(`[shipsafe] referral credited (friends now ${result.referrerFriends})`);
+          }
+        } catch (error) {
+          console.error(`[shipsafe] referral register failed: ${errorText(error)}`);
+        }
+      }
+      const intro = startIntro({ invited });
+      await send(action.chatId, action.isOwner ? `${startMessage(SITE_URL)}\n\n${intro}` : intro, { reply_markup: { inline_keyboard: startMenu(SITE_URL) } });
+      return;
+    }
+
+    case "prices": {
+      await sendPrices(action.chatId, action.userId);
+      return;
+    }
+
+    case "referral": {
+      await sendReferral(action.chatId, action.userId);
+      return;
+    }
+
+    case "callbackMenu": {
+      await callTelegramApi(token, "answerCallbackQuery", { callback_query_id: action.queryId }, { timeoutsMs: [3_000] }).catch((error: unknown) =>
+        console.error(`[shipsafe] answerCallbackQuery failed: ${errorText(error)}`),
+      );
+      await sendMenu(action.menu, action.chatId, action.userId);
+      return;
+    }
+
     case "sendInvoice": {
-      await callTelegramApi(token, "sendInvoice", buildStarsInvoice(action.chatId, action.tier));
-      console.info(`[shipsafe] stars invoice sent: ${action.tier}`);
+      const percent = await discountFor(store, action.userId);
+      await callTelegramApi(token, "sendInvoice", buildStarsInvoice(action.chatId, action.tier, percent));
+      console.info(`[shipsafe] stars invoice sent: ${action.tier}${percent > 0 ? ` (-${percent}%)` : ""}`);
       return;
     }
 
@@ -67,10 +178,12 @@ async function execute(action: Exclude<WebhookAction, { kind: "ignore" }>, token
         console.error(`[shipsafe] answerCallbackQuery failed: ${errorText(error)}`),
       );
       if (action.kind === "callbackInvoice") {
-        await Promise.all([answered, callTelegramApi(token, "sendInvoice", buildStarsInvoice(action.chatId, action.tier))]);
-        console.info(`[shipsafe] stars invoice sent from menu: ${action.tier}`);
+        const percent = await discountFor(store, action.userId);
+        await Promise.all([answered, callTelegramApi(token, "sendInvoice", buildStarsInvoice(action.chatId, action.tier, percent))]);
+        console.info(`[shipsafe] stars invoice sent from menu: ${action.tier}${percent > 0 ? ` (-${percent}%)` : ""}`);
       } else if (action.kind === "callbackCrypto") {
-        await Promise.all([answered, send(action.chatId, action.html, { parse_mode: "HTML" })]);
+        const percent = await discountFor(store, action.userId);
+        await Promise.all([answered, send(action.chatId, cryptoInstructions(action.network, percent), { parse_mode: "HTML" })]);
         console.info(`[shipsafe] crypto instructions sent from menu: ${action.network}`);
       } else {
         await answered;
@@ -87,13 +200,13 @@ async function execute(action: Exclude<WebhookAction, { kind: "ignore" }>, token
     case "starsPayment": {
       // Money has moved: log first so the order survives any Telegram failure below.
       const orderId = generateOrderId();
-      const line = starsLogLine(orderId, action.tier, action.amount, action.buyer, action.chargeId);
+      const line = starsLogLine(orderId, action.tier, action.amount, action.buyer, action.chargeId, action.percent);
       console.info(`${line} · received${action.currencyOk ? "" : " · WARNING: currency is not XTR"}`);
 
       const results = await Promise.allSettled([
-        send(action.buyer.chatId, starsBuyerConfirmation(orderId, action.tier, action.amount)),
+        send(action.buyer.chatId, starsBuyerConfirmation(orderId, action.tier, action.amount, action.percent)),
         ownerChatId
-          ? send(ownerChatId, starsOwnerAlert(orderId, action.tier, action.amount, action.buyer, action.chargeId))
+          ? send(ownerChatId, starsOwnerAlert(orderId, action.tier, action.amount, action.buyer, action.chargeId, new Date(), action.percent))
           : Promise.reject(new Error("TELEGRAM_CHAT_ID not configured")),
       ]);
       const [buyerResult, ownerResult] = results;
@@ -149,6 +262,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error(`[shipsafe] telegram webhook ${action.kind} failed: ${errorText(error)}`);
   }
+  // After the user has their answer: make sure the bot's description and command menu are published.
+  await ensureBotProfile(token).catch((error: unknown) => console.error(`[shipsafe] bot profile failed: ${errorText(error)}`));
   return ok();
 }
 

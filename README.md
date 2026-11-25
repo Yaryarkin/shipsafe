@@ -83,7 +83,7 @@ Limits keep the tab fast: archives up to **150 MB**, only text/config files are 
 
 ## Need a human audit?
 
-The free scan sees what the public sees. For a look inside your code, database rules and builds, order on the [live site](https://shipsafe-six-iota.vercel.app) (**Pro Audit** button) or directly in Telegram via **[@shipsafe_orders_bot](https://t.me/shipsafe_orders_bot)** — `/start` opens the payment menu.
+The free scan sees what the public sees. For a look inside your code, database rules and builds, order on the [live site](https://shipsafe-six-iota.vercel.app) (**Pro Audit** button) or directly in Telegram via **[@shipsafe_orders_bot](https://t.me/shipsafe_orders_bot)** — `/start` is the welcome, `/prices` lists the reviews (with your referral discount), `/referral` shows your personal invite link.
 
 | | Quick Review | Code & Config Fix Pack | Full Repo & Game Audit |
 | --- | --- | --- | --- |
@@ -123,7 +123,7 @@ Requires **Node.js 20.9+** (production runs on Node 22).
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 613 Vitest unit tests
+npm test         # 682 Vitest unit tests
 ```
 
 Other scripts: `npm run build`, `npm start`, `npm run typecheck` (`tsc --noEmit`, strict + `noUncheckedIndexedAccess`), `npm run lint`.
@@ -145,6 +145,7 @@ Copy `.env.example` to `.env.local`.
 | `NEXT_PUBLIC_DOCS_URL` | Target of the "GitHub / Docs" link |
 | `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` | Bot for Telegram Stars payments (default `shipsafe_orders_bot`) |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | Server-only. Order notifications and the bot's payment flow |
+| `REDIS_URL` or `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Server-only. Counts referred friends (every 15 friends = 10% off, up to 50% at 75). Without them the program stays off and prices never change |
 | `TELEGRAM_WEBHOOK_SECRET` | Server-only, recommended. Checked against Telegram's `X-Telegram-Bot-Api-Secret-Token` header |
 
 Never prefix server secrets with `NEXT_PUBLIC_`.
@@ -187,7 +188,7 @@ src/
     └── payments.ts, waitlist.ts, receipt.ts, order-id.ts, order-notifications.ts, telegram.ts, telegram-webhook.ts
 ```
 
-Tests live next to the code in `__tests__/` folders — **613 Vitest tests** covering SSRF guards, scoring, every web and build check (including a binary-manifest fixture encoder), secret masking, OG / badge parameter validation and XSS safety, share links, payments and the Telegram bot.
+Tests live next to the code in `__tests__/` folders — **682 Vitest tests** covering SSRF guards, scoring, every web and build check (including a binary-manifest fixture encoder), secret masking, OG / badge parameter validation and XSS safety, share links, payments and the Telegram bot.
 
 ShipSafe ships the headers it audits for (CSP, HSTS, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`) and disables `X-Powered-By`.
 
