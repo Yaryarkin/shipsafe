@@ -164,13 +164,18 @@ describe("customers (any chat)", () => {
       expect(profile.description.length).toBeLessThanOrEqual(BOT_DESCRIPTION_LIMIT);
       expect(profile.shortDescription.length).toBeGreaterThan(30);
       expect(profile.shortDescription.length).toBeLessThanOrEqual(BOT_SHORT_DESCRIPTION_LIMIT);
-      expect(profile.description).toContain("/prices");
+      expect(profile.description).toContain("Prices");
+      expect(profile.description).toContain("$10");
+      expect(profile.description).toContain("$49");
+      expect(profile.description).toContain("shipsafe-six-iota.vercel.app");
       expect(profile.description).toContain("/referral");
       expect(profile.description).toContain("50%");
       expect(profile.commands.map((item) => item.command)).toEqual(["start", "prices", "referral"]);
       expect(profile.commands.every((item) => item.description.length >= 3 && item.description.length <= 256)).toBe(true);
     }
-    expect(BOT_PROFILES[0]?.description).toContain("security");
+    expect(BOT_PROFILES[0]?.description).toContain("finds security holes");
+    expect(BOT_PROFILES[0]?.description).toContain("How it works:");
+    expect(BOT_PROFILES[1]?.description).toContain("Как это работает:");
     expect(BOT_PROFILES[1]?.description).toContain("безопасности");
   });
 

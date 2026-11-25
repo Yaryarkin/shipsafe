@@ -104,10 +104,10 @@ describe("referral flow through the webhook (store connected)", () => {
     expect(sent("setMyCommands")[1]?.body.language_code).toBe("ru");
     // The description shown before Start and the short description on the profile page.
     expect(sent("setMyDescription")).toHaveLength(2);
-    expect(String(sent("setMyDescription")[0]?.body.description)).toContain("ShipSafe checks your website");
-    expect(String(sent("setMyDescription")[1]?.body.description)).toContain("проверяет ваш сайт");
+    expect(String(sent("setMyDescription")[0]?.body.description)).toContain("ShipSafe finds security holes");
+    expect(String(sent("setMyDescription")[1]?.body.description)).toContain("находит дыры");
     expect(sent("setMyShortDescription")).toHaveLength(2);
-    expect(String(sent("setMyShortDescription")[0]?.body.short_description)).toContain("Human security reviews");
+    expect(String(sent("setMyShortDescription")[0]?.body.short_description)).toContain("Finds security holes");
   });
 
   it("the same friend starting again, or opening a second link, credits nobody twice", async () => {
