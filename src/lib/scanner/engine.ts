@@ -1,12 +1,16 @@
-import { checkBundleSecrets, fetchSameOriginScripts } from "./checks/secrets";
+import { checkBundleSecrets, collectScriptUrls, fetchSameOriginScripts } from "./checks/secrets";
 import { checkCorsAndCookies } from "./checks/cors-cookies";
 import { checkMixedContentAndSri, checkSourceMaps } from "./checks/frontend";
 import { checkExposure } from "./checks/exposure";
+import { checkSensitiveFiles, checkSitemapPaths } from "./checks/exposure-files";
+import { checkHeadersDeep } from "./checks/headers-deep";
 import { checkHeaders } from "./checks/headers";
 import { checkTransport } from "./checks/transport";
 import { ScanError } from "./errors";
 import { createScanContext, errorCode, PER_FETCH_TIMEOUT_MS, type SafeResponse } from "./http";
-import { scoreFindings, sortFindings } from "./scoring";
+import { enrichFindings } from "./fixes";
+import { buildScoreBreakdown, scoreFindings, sortFindings } from "./scoring";
+import { detectWebStack, snippetStacksFor } from "./stack";
 import { assertPublicDns, normalizeUrl } from "./ssrf";
 import {
   CATEGORY_LABELS,
@@ -103,6 +107,17 @@ export async function runScan(rawUrl: string): Promise<ScanResult> {
     { category: "transport", key: "transport", label: CATEGORY_LABELS.transport, run: async () => checkTransport({ site, main, httpsError, httpProbe }) },
     { category: "headers", key: "headers", label: CATEGORY_LABELS.headers, run: async () => checkHeaders(site, main) },
     { category: "exposure", key: "exposure", label: CATEGORY_LABELS.exposure, run: () => checkExposure(ctx, site, main) },
+    {
+      category: "exposure",
+      key: "exposure.files",
+      label: "Leftover files",
+      run: async () => {
+        const origin = new URL(main.url).origin;
+        const [files, sitemap] = await Promise.all([checkSensitiveFiles(ctx, site, origin), checkSitemapPaths(ctx, site, origin)]);
+        return [...files, ...sitemap];
+      },
+    },
+    { category: "headers", key: "headers.deep", label: "Header hardening", run: async () => checkHeadersDeep(site, main) },
     { category: "cors-cookies", key: "cors-cookies", label: CATEGORY_LABELS["cors-cookies"], run: () => checkCorsAndCookies(ctx, site, main) },
     { category: "secrets", key: "secrets", label: CATEGORY_LABELS.secrets, run: async () => checkBundleSecrets(site, main, await bundlePromise) },
     { category: "frontend", key: "frontend.html", label: "Mixed content & SRI", run: async () => checkMixedContentAndSri(site, main) },
@@ -119,6 +134,14 @@ export async function runScan(rawUrl: string): Promise<ScanResult> {
   const sorted = sortFindings(findings);
   const { score, grade, summary } = scoreFindings(sorted);
 
+  // Detect the stack from headers, the HTML shell and script URLs, then list that stack's fixes first.
+  let detectedStack: ReturnType<typeof detectWebStack> = [];
+  try {
+    detectedStack = detectWebStack({ headers: main.headers, html: main.body.toString("utf8"), scriptUrls: collectScriptUrls(main.body.toString("utf8"), main.url) });
+  } catch {
+    // Detection is a hint; a parsing problem must never fail the scan.
+  }
+
   const result: ScanResult = {
     target: target.href,
     finalUrl: main.url,
@@ -127,7 +150,9 @@ export async function runScan(rawUrl: string): Promise<ScanResult> {
     grade,
     scanDurationMs: Date.now() - startedAt,
     summary,
-    findings: sorted,
+    findings: enrichFindings(sorted, site, snippetStacksFor(detectedStack)),
+    scoreBreakdown: buildScoreBreakdown(sorted),
+    detectedStack,
   };
 
   return scanResultSchema.parse(result);

@@ -1,3 +1,4 @@
+import { revealStyle } from "./Reveal";
 const CHECKS = [
   {
     title: "Transport & TLS",
@@ -42,13 +43,13 @@ export function HowItWorks() {
         What ShipSafe checks
       </h2>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {CHECKS.map((check) => (
-          <div key={check.title} className="rounded-lg border border-line bg-card p-4">
+        {CHECKS.map((check, index) => (
+          <div key={check.title} className="reveal surface rounded-lg p-4" style={revealStyle(index + 4)}>
             <h3 className="text-sm font-medium">{check.title}</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-muted">{check.body}</p>
           </div>
         ))}
-        <div className="rounded-lg border border-dashed border-line p-4">
+        <div className="reveal rounded-lg border border-dashed border-line p-4" style={revealStyle(CHECKS.length + 4)}>
           <h3 className="text-sm font-medium">What it never does</h3>
           <ul className="mt-1.5 space-y-1.5">
             {NEVER.map((item) => (

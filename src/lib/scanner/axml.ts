@@ -51,6 +51,7 @@ export const ANDROID_ATTR = {
   debuggable: 0x0101000f,
   allowBackup: 0x01010280,
   usesCleartextTraffic: 0x010104ec,
+  name: 0x01010003,
 } as const;
 
 export function isBinaryXml(bytes: Uint8Array): boolean {

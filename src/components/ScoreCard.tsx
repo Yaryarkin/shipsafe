@@ -3,7 +3,9 @@ import { describeScanDiff, isMeaningfulDiff, type ScanDiff } from "@/lib/scan-hi
 import type { Grade, ScanResult } from "@/lib/scanner/types";
 import { displayTarget } from "@/lib/scan-target";
 import { buildShareText, buildXIntentUrl, SITE_URL } from "@/lib/share";
+import { Reveal } from "./Reveal";
 import { CopyButton } from "./CopyButton";
+import { ShareButton } from "./ShareButton";
 import { GRADE_TONE } from "./grade-tone";
 
 const VERDICT: Record<Grade, string> = {
@@ -17,8 +19,8 @@ const VERDICT: Record<Grade, string> = {
 const RADIUS = 44;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-/** Mobile: 2×2 grid. ≥sm: one row of four. Borders are drawn per cell so both layouts stay crisp. */
-const CELL_BORDERS = ["", "border-l", "border-t sm:border-t-0 sm:border-l", "border-l border-t sm:border-t-0"];
+/** Narrow container (phone, side rail): 2×2 grid. Wide container: one row of four. Borders are drawn per cell so both layouts stay crisp. */
+const CELL_BORDERS = ["", "border-l", "border-t @lg:border-t-0 @lg:border-l", "border-l border-t @lg:border-t-0"];
 
 export function ScoreCard({
   result,
@@ -54,11 +56,11 @@ export function ScoreCard({
   ];
 
   return (
-    <section aria-label="Scan score" className="overflow-hidden rounded-xl border border-line bg-card">
-      <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
+    <Reveal as="section" index={1} aria-label="Scan score" className="surface @container overflow-hidden rounded-lg">
+      <div className="flex flex-col gap-5 p-5 @lg:flex-row @lg:items-center @lg:gap-6 @lg:p-6">
         <div className="relative h-24 w-24 shrink-0">
           <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90" aria-hidden="true">
-            <circle cx="50" cy="50" r={RADIUS} fill="none" stroke="#1f2430" strokeWidth="5" />
+            <circle cx="50" cy="50" r={RADIUS} fill="none" stroke="#1e222d" strokeWidth="5" />
             <circle
               cx="50"
               cy="50"
@@ -125,7 +127,8 @@ export function ScoreCard({
         </div>
 
         {!isDemo && (
-          <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-stretch">
+          <div className="flex flex-wrap items-center gap-2 @lg:flex-col @lg:items-stretch">
+            <ShareButton text={shareText} />
             <CopyButton text={shareText} label="Copy share text" />
             <a
               href={buildXIntentUrl(shareText)}
@@ -140,9 +143,44 @@ export function ScoreCard({
         )}
       </div>
 
-      <dl className="grid grid-cols-2 border-t border-line sm:grid-cols-4">
+      {result.scoreBreakdown && (
+        <details className="group border-t border-line px-5 py-3 @lg:px-6">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-xs text-muted transition-colors hover:text-fg [&::-webkit-details-marker]:hidden">
+            <span>How this score was calculated</span>
+            <span className="font-mono text-faint group-open:hidden">show</span>
+            <span className="hidden font-mono text-faint group-open:inline">hide</span>
+          </summary>
+          <ul className="mt-3 space-y-1.5 font-mono text-xs tabular-nums text-soft">
+            <li className="flex justify-between gap-3">
+              <span>Starting score</span>
+              <span>{result.scoreBreakdown.base}</span>
+            </li>
+            {result.scoreBreakdown.items.map((item) => (
+              <li key={item.severity} className="flex justify-between gap-3">
+                <span className={item.severity === "critical" ? "text-critical" : "text-warn"}>
+                  {item.count} {item.severity} × {item.pointsEach}
+                </span>
+                <span>−{item.points}</span>
+              </li>
+            ))}
+            {result.scoreBreakdown.criticalCap !== null && (
+              <li className="flex justify-between gap-3 text-critical">
+                <span>Critical issue caps the score at</span>
+                <span>{result.scoreBreakdown.criticalCap}</span>
+              </li>
+            )}
+            <li className="flex justify-between gap-3 border-t border-line pt-1.5 text-fg">
+              <span>Final score</span>
+              <span>{result.scoreBreakdown.total}</span>
+            </li>
+          </ul>
+          <p className="mt-2 text-xs text-faint">Info findings and passed checks never lower the score.</p>
+        </details>
+      )}
+
+      <dl className="grid grid-cols-2 border-t border-line @lg:grid-cols-4">
         {stats.map((stat, index) => (
-          <div key={stat.label} className={`border-line px-5 py-3.5 sm:px-6 ${CELL_BORDERS[index]}`}>
+          <div key={stat.label} className={`border-line px-5 py-3.5 @lg:px-6 ${CELL_BORDERS[index]}`}>
             <dt className="flex items-center gap-1.5 text-xs text-muted">
               <span className={`h-1.5 w-1.5 rounded-full ${stat.dot}`} aria-hidden="true" />
               {stat.label}
@@ -151,6 +189,6 @@ export function ScoreCard({
           </div>
         ))}
       </dl>
-    </section>
+    </Reveal>
   );
 }

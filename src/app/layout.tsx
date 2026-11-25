@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AppShell } from "@/components/AppShell";
+import { ScanProvider } from "@/components/ScanProvider";
 import { SITE_URL } from "@/lib/share";
 import { defaultSocialMetadata, SITE_DESCRIPTION, SITE_TITLE } from "@/lib/site-metadata";
 import "./globals.css";
@@ -33,14 +35,19 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#090a0d",
+  themeColor: "#07080a",
   colorScheme: "dark",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body className="min-h-dvh bg-ink text-fg">{children}</body>
+      <body className="min-h-dvh text-fg">
+        <ScanProvider>
+          <AppShell>{children}</AppShell>
+        </ScanProvider>
+      </body>
     </html>
   );
 }

@@ -1,4 +1,6 @@
-import { scoreFindings, sortFindings } from "@/lib/scanner/scoring";
+import { enrichFindings } from "@/lib/scanner/fixes";
+import { buildScoreBreakdown, scoreFindings, sortFindings } from "@/lib/scanner/scoring";
+import { snippetStacksFor, type StackDetection } from "@/lib/scanner/stack";
 import type { Finding, ScanResult } from "@/lib/scanner/types";
 import { buildFixPrompt, finding } from "@/lib/scanner/utils";
 
@@ -286,6 +288,11 @@ const demoFindings: Finding[] = [
   }),
 ];
 
+const DEMO_STACK: StackDetection[] = [
+  { id: "nextjs", label: "Next.js", confidence: "high", signals: ["x-powered-by: Next.js", "/_next/ assets"] },
+  { id: "vercel", label: "Vercel", confidence: "high", signals: ["x-vercel-id header", "server: Vercel"] },
+];
+
 export function createDemoReport(): ScanResult {
   const findings = sortFindings(demoFindings);
   const { score, grade, summary } = scoreFindings(findings);
@@ -297,6 +304,8 @@ export function createDemoReport(): ScanResult {
     grade,
     scanDurationMs: 8_412,
     summary,
-    findings,
+    findings: enrichFindings(findings, SITE, snippetStacksFor(DEMO_STACK)),
+    scoreBreakdown: buildScoreBreakdown(findings),
+    detectedStack: DEMO_STACK,
   };
 }

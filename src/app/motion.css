@@ -1,0 +1,30 @@
+/*
+ * View reveal: a short opacity + small upward slide, staggered by element. 260ms, ease-out, no
+ * overshoot. Only `transform` and `opacity` animate and nothing waits for a hover.
+ *
+ * `backwards` fill: the "from" state applies only during the stagger delay, so after the animation
+ * an element just uses its normal styles and never keeps a stale transform.
+ */
+
+:root {
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --reveal-step: 40ms;
+}
+
+.reveal {
+  animation: reveal-up 260ms var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * var(--reveal-step));
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    animation: none !important;
+  }
+}

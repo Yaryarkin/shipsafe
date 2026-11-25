@@ -1,7 +1,10 @@
 import { buildTarget, displayTarget } from "@/lib/scan-target";
 import { booleanValue, findAttribute, isBinaryXml, parseBinaryXml } from "./axml";
 import { analyzeSecrets, type SecretSource } from "./checks/secret-patterns";
-import { scoreFindings, sortFindings } from "./scoring";
+import { extraBuildFindings } from "./build-extra";
+import { enrichFindings } from "./fixes";
+import { detectBuildStack, snippetStacksFor } from "./stack";
+import { buildScoreBreakdown, scoreFindings, sortFindings } from "./scoring";
 import type { Finding, ScanResult } from "./types";
 import { buildFixPrompt, finding, formatBytes } from "./utils";
 
@@ -553,6 +556,7 @@ export function analyzeBuildArchive(files: BuildFiles, fileName: string, options
   findings.push(...credentialFileFindings(site, entries, texts));
   findings.push(...sourceMapFindings(site, entries));
   findings.push(...electronFindings(site, entries, texts));
+  findings.push(...extraBuildFindings(site, { texts, manifest: isAndroid ? entries.find((entry) => entry.lower === "androidmanifest.xml")?.content : undefined }));
 
   const sources: SecretSource[] = [...texts.entries()].map(([path, text]) => ({ label: path, text }));
   const meta = options.meta ?? {};
@@ -577,6 +581,7 @@ export function analyzeBuildArchive(files: BuildFiles, fileName: string, options
 
   const sorted = sortFindings(findings);
   const { score, grade, summary } = scoreFindings(sorted);
+  const detectedStack = detectBuildStack(entries.map((entry) => entry.path), fileName);
   return {
     target,
     finalUrl: target,
@@ -585,6 +590,8 @@ export function analyzeBuildArchive(files: BuildFiles, fileName: string, options
     grade,
     scanDurationMs: Math.max(0, Math.round(options.durationMs ?? 0)),
     summary,
-    findings: sorted,
+    findings: enrichFindings(sorted, site, snippetStacksFor(detectedStack)),
+    scoreBreakdown: buildScoreBreakdown(sorted),
+    detectedStack,
   };
 }

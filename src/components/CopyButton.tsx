@@ -27,8 +27,8 @@ export function CopyButton({ text, label = "Copy fix prompt" }: { text: string; 
     <button
       type="button"
       onClick={handleClick}
-      className={`inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border px-3 text-xs transition-colors ${
-        copied ? "border-safe/30 bg-safe/10 text-safe" : "border-line bg-raised text-soft hover:border-line-strong hover:text-fg"
+      className={`chip inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-3.5 text-xs ${
+        copied ? "text-safe" : "text-soft hover:text-fg"
       }`}
     >
       {copied ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}

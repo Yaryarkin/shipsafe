@@ -20,12 +20,12 @@ Paste a URL. ShipSafe runs **strictly passive** checks (standard GET/HEAD only �
 
 | Area | Checks |
 | --- | --- |
-| **Transport & TLS** | HTTPS availability, certificate validity / expiry / protocol, HTTP → HTTPS redirect, **HSTS** |
-| **Security headers** | **CSP** (missing, report-only, `unsafe-inline` / `unsafe-eval` / wildcards), `X-Frame-Options` / `frame-ancestors`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` |
-| **Public exposure** | Exposed **`/.env`** and **`/.git/HEAD`** (status + file type only — contents are never shown), **`/.well-known/security.txt`**, `robots.txt`, `sitemap.xml`, `Server` / `X-Powered-By` version leaks |
+| **Transport & TLS** | HTTPS availability, certificate validity / expiry / protocol, HTTP → HTTPS redirect, **HSTS** (max-age, `includeSubDomains`, **preload readiness**) |
+| **Security headers** | **CSP** (missing, report-only, `unsafe-inline` / `unsafe-eval` / wildcards), `X-Frame-Options` / `frame-ancestors`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (incl. wildcard grants), **CSP hardening** (`object-src`, `base-uri`, wildcard / `http:` sources), `Cross-Origin-Opener-Policy` |
+| **Public exposure** | Exposed **`/.env`** and **`/.git/HEAD`** (status + file type only — contents are never shown), **`/.well-known/security.txt`**, `robots.txt`, `sitemap.xml`, `Server` / `X-Powered-By` version leaks, **leftover files** (`.env.local` / `.env.production`, `/.git/config`, `.DS_Store`, `.htpasswd`, backup archives and SQL dumps — confirmed by file signature, so SPA fallbacks never false-positive), sensitive paths listed in `sitemap.xml` |
 | **Frontend integrity** | Public **source maps** (`*.js.map`, inline `data:` maps), **mixed content**, third-party scripts without **SRI** |
 | **CORS & cookies** | Wildcard / reflected origins with credentials, `null` origin, `Secure` / `HttpOnly` / `SameSite` on every cookie |
-| **Client-bundle secrets** | Stripe, AWS, OpenAI, Anthropic, GitHub, Slack, SendGrid, Google OAuth, PEM private keys, Supabase `service_role` / `sb_secret_` — always masked (`sk_live_****1234`). Supabase / Firebase public configs get an RLS / Security Rules reminder |
+| **Client-bundle secrets** | Stripe, AWS, OpenAI, Anthropic, GitHub, Slack, SendGrid, Google OAuth, PEM private keys, Supabase `service_role` / `sb_secret_`, **Telegram bot tokens, database URLs with passwords, Firebase / FCM server keys, Google service-account keys, npm, Mailgun, Twilio, DigitalOcean, Mapbox, Discord, AWS secret keys** — always masked (`sk_live_****1234`). Supabase / Firebase public configs get an RLS / Security Rules reminder |
 
 ### 2. Client-Side App & Game Build Scan (`.apk` / `.zip`)
 
@@ -40,6 +40,7 @@ Drop an **Android APK** or a **WebGL / HTML5 / Electron / Unity / Godot** build.
 | Hard-coded API keys in packaged JS / JSON / XML / `.properties` (same detector as the web scan) | critical |
 | `android:usesCleartextTraffic="true"` | warning |
 | Source maps (`*.js.map`) shipped in the production build | warning |
+| **Risky Android permissions** (SMS, call log, accessibility, install packages, all-files, overlay …) · hard-coded **cleartext `http://`**, local / staging and API endpoints · **high-entropy tokens** (hex / base64) assigned to `apiKey` / `secret` / `token` names · **debug flags** in config files | warning / info |
 | `android:allowBackup` enabled (or left at its default) · public `google-services.json` → verify Firebase rules | info |
 
 Limits keep the tab fast: archives up to **150 MB**, only text/config files are read (max **80 files**, **1 MB** each), media and binaries are never decompressed.
@@ -49,11 +50,19 @@ Limits keep the tab fast: archives up to **150 MB**, only text/config files are 
 ## Features
 
 - **One-Click AI Fix Prompts** — every finding has a tailored prompt to paste into **Cursor, Claude Code or Copilot** (e.g. how to turn off `debuggable` in `build.gradle`, drop `.map` files from Vite / Unity WebGL, or move a key behind your backend).
+- **One-click demo targets and one-file fixes** — three offline demo reports (an exposed vibe-coded app, a leaky API, a hardened A site) open the full report in one click. For the detected stack, **Fix it all in one file** generates a single `next.config.ts`, `vercel.json` or `nginx.conf` that resolves every open header and policy finding. Public client keys (Stripe `pk_`, Mapbox, Sentry DSN, Google API keys) are reported as an expected note, never as a leak; `sk_`, `service_role` and `.env` dumps stay critical.
+- **Pre-launch gate, fix queue and stack-aware fixes** — every report opens with one verdict (Ready to ship, Needs attention, Blocked by critical) and the reasons behind it, an ordered queue of what to patch now, next and later (with effort), and the detected stack (Next.js, Vercel, Nginx, Express, Android, Unity, Godot, Electron, static builds and more) so that stack's copy-paste fixes come first. The design is a solid, flat, monochrome engineering interface: no blur, gradients or glow.
+- **Adapts to the device** — mobile (< 768px) gets a bottom tab bar and one column with 44px+ targets, tablet (768–1024px) a balanced 2-column layout (sidebar in landscape, side-by-side summary in portrait), desktop (> 1024px) a multi-panel workspace with a sticky filter rail and code fixes beside the evidence. Layout is pure CSS; a hydration-safe `useDeviceType` hook only drives behavior (autofocus on desktop, tap-first wording on touch).
+- **Four views, one state** — `/` Scanner, `/report` Report & fixes, `/history` History & badges, `/order` Bot & orders. The scan result survives navigation, links keep `utm_*`, share-card and Telegram parameters, and `/order?tier=quick` preselects an audit. A finished scan opens the report automatically.
+- **Stack-aware fixes** — every issue explains its business impact and ships copy-paste snippets for **Next.js, Vercel, Nginx, Express** (and Android for builds), plus a **score breakdown** showing exactly where every point went.
 - **Re-scan Diff (no database)** — fix things, hit **Re-scan**, and see `62 (D) → 94 (A) · +32 pts · 4 issues fixed`. History lives in your browser's `localStorage` (last 20 sites).
 - **Dynamic Score OG Cards** — shared result links (`/?s=94&g=A&p=62`) show your real score in X / Discord / Telegram previews, rendered by `/api/og`.
-- **Embeddable README SVG Badges** — `/api/badge?grade=A&score=94` gives you a shields-style badge for your repo or itch.io page (one click: **Copy README Badge**).
+- **Embeddable README SVG Badges** — `/api/badge?grade=A&score=94` gives you a shields-style badge for your repo or itch.io page. Pick `style=flat|flat-square` and `variant=full|grade|score`, then copy it as **Markdown, HTML, reStructuredText or a plain image URL**.
 - **Share your score** — Copy Share Text / Post on X ("Upgraded my site from 62 to 94/100 …").
-- **Markdown export** of the full report.
+- **Owner / Developer view** — flip the report between plain-language business impact (with a one-click brief to forward to your developer) and the technical view with evidence, stack snippets and the AI prompt. Your choice is remembered.
+- **Markdown export & print / PDF** — summary metrics, severity breakdown, priority checklist and remediation steps, for owners, developers or both; **Print / PDF** opens a clean light document with no decoration.
+- **Verify your fixes** — history keeps a score trend per site; re-scan and see which issues are fixed, improved, still open or new.
+- **Prefilled links** — `/?url=my-app.com&scan=1` opens the scanner with the site filled in (and starts the scan with `scan=1`); `mode=build` opens the build drop zone. Other parameters (share cards, `utm_*`, Telegram `start`) are left untouched.
 - **Score & grade** — 0–100, A–F; any critical finding caps the grade at D.
 
 ```markdown
@@ -114,7 +123,7 @@ Requires **Node.js 20.9+** (production runs on Node 22).
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 392 Vitest unit tests
+npm test         # 613 Vitest unit tests
 ```
 
 Other scripts: `npm run build`, `npm start`, `npm run typecheck` (`tsc --noEmit`, strict + `noUncheckedIndexedAccess`), `npm run lint`.
@@ -178,7 +187,7 @@ src/
     └── payments.ts, waitlist.ts, receipt.ts, order-id.ts, order-notifications.ts, telegram.ts, telegram-webhook.ts
 ```
 
-Tests live next to the code in `__tests__/` folders — **392 Vitest tests** covering SSRF guards, scoring, every web and build check (including a binary-manifest fixture encoder), secret masking, OG / badge parameter validation and XSS safety, share links, payments and the Telegram bot.
+Tests live next to the code in `__tests__/` folders — **613 Vitest tests** covering SSRF guards, scoring, every web and build check (including a binary-manifest fixture encoder), secret masking, OG / badge parameter validation and XSS safety, share links, payments and the Telegram bot.
 
 ShipSafe ships the headers it audits for (CSP, HSTS, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`) and disables `X-Powered-By`.
 

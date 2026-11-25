@@ -4,7 +4,7 @@ export const SCAN_STEPS = ["Checking TLS", "Inspecting Headers", "Scanning Publi
 
 export function ScanProgress({ activeStep }: { activeStep: number }) {
   return (
-    <div className="animate-fade-in rounded-lg border border-line bg-card px-4 py-3.5" role="status" aria-live="polite">
+    <div className="animate-fade-in surface rounded-lg px-4 py-3.5" role="status" aria-live="polite">
       <ol className="grid gap-2.5 sm:grid-cols-4 sm:gap-3">
         {SCAN_STEPS.map((label, index) => {
           const done = index < activeStep;
@@ -28,7 +28,7 @@ export function ScanProgress({ activeStep }: { activeStep: number }) {
       </ol>
       <div className="mt-3.5 h-px overflow-hidden bg-line">
         <div
-          className="h-full bg-fg/70 transition-[width] duration-700 ease-out"
+          className="h-full bg-brand transition-[width] duration-700 ease-out"
           style={{ width: `${Math.min(100, ((activeStep + 0.5) / SCAN_STEPS.length) * 100)}%` }}
         />
       </div>

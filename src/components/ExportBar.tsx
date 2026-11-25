@@ -1,19 +1,24 @@
 "use client";
 
-import { ArrowRight, Download, Send } from "lucide-react";
-import { buildBadgeMarkdown } from "@/lib/badge";
+import { ArrowRight, Download, Printer, Send } from "lucide-react";
+import { buildLaunchUrl } from "@/lib/launch-params";
 import { downloadMarkdown } from "@/lib/markdown";
 import { formatStars, PRICING_TIERS, TELEGRAM_BOT_USERNAME, TIER_IDS } from "@/lib/payments";
+import type { ReportView } from "@/lib/report-summary";
 import { isBuildTarget } from "@/lib/scan-target";
+import { SITE_URL } from "@/lib/share";
 import type { ScanResult } from "@/lib/scanner/types";
+import Link from "next/link";
+import { revealStyle } from "./Reveal";
+import { useScan } from "./ScanProvider";
 import { CopyButton } from "./CopyButton";
 
 const SECONDARY_BUTTON =
-  "inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-line bg-raised px-3 text-xs text-soft transition-colors hover:border-line-strong hover:text-fg";
+  "chip inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3.5 text-xs text-soft hover:text-fg";
 
-function Panel({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function Panel({ title, description, index, children }: { title: string; description: string; index: number; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col rounded-xl border border-line bg-card p-5">
+    <div className="reveal surface flex flex-col rounded-lg p-5" style={revealStyle(index)}>
       <h3 className="text-sm font-medium text-fg">{title}</h3>
       <p className="mt-1 text-xs leading-relaxed text-muted">{description}</p>
       <div className="mt-4 flex flex-1 flex-col justify-end gap-3">{children}</div>
@@ -21,37 +26,50 @@ function Panel({ title, description, children }: { title: string; description: s
   );
 }
 
-export function ExportBar({ result, isDemo = false, onOpenPro }: { result: ScanResult; isDemo?: boolean; onOpenPro: () => void }) {
+export function ExportBar({
+  result,
+  isDemo = false,
+  view = "developer",
+  onOpenPro,
+}: {
+  result: ScanResult;
+  isDemo?: boolean;
+  view?: ReportView;
+  onOpenPro: () => void;
+}) {
+  const { href } = useScan();
   const isBuild = isBuildTarget(result.target);
-  // Same-origin preview (CSP allows only 'self' images); the copied markdown uses the public URL.
-  const badgePreview = `/api/badge?grade=${result.grade}&score=${result.overallScore}`;
+  const viewLabel = view === "owner" ? "Owner" : "Developer";
+  const rescanLink = !isDemo && !isBuild ? buildLaunchUrl(SITE_URL, { url: result.target, autoScan: true }) : null;
 
   return (
-    <section aria-label="Export, badge and human review" className="grid gap-3 pt-2 lg:grid-cols-3">
-      <Panel title="Export report" description="The full report as Markdown — for a pull request, an issue or your launch checklist.">
-        <button type="button" onClick={() => downloadMarkdown(result)} className={`${SECONDARY_BUTTON} self-start`}>
-          <Download className="h-3.5 w-3.5" aria-hidden="true" />
-          Download .md
-        </button>
-      </Panel>
-
-      <Panel title="README badge" description="Show your current grade on GitHub or itch.io. The badge links back to the scanner.">
-        {isDemo ? (
-          <p className="rounded-md border border-dashed border-line px-3 py-2.5 text-xs text-faint">Run a real scan to get your badge.</p>
-        ) : (
-          <>
-            <div className="flex h-11 items-center rounded-md border border-line bg-raised px-3">
-              {/* eslint-disable-next-line @next/next/no-img-element -- tiny same-origin SVG */}
-              <img src={badgePreview} alt={`ShipSafe badge: grade ${result.grade}, ${result.overallScore}/100`} height={20} className="h-5 w-auto" />
-            </div>
-            <span className="self-start">
-              <CopyButton text={buildBadgeMarkdown(result.overallScore, result.grade)} label="Copy README badge" />
-            </span>
-          </>
-        )}
+    <section aria-label="Export and human review" className="grid gap-3 pt-2 lg:grid-cols-2">
+      <Panel index={9} title="Export report" description="A clean report to share: summary metrics, severity breakdown, priority list and remediation steps.">
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => downloadMarkdown(result, view)} className={SECONDARY_BUTTON} title="Markdown matching the audience selected above">
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            Markdown · {viewLabel}
+          </button>
+          <button type="button" onClick={() => window.print()} className={SECONDARY_BUTTON} title="Opens the print dialog: choose Save as PDF">
+            <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+            Print / PDF
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button type="button" onClick={() => downloadMarkdown(result, "full")} className="text-xs text-muted underline-offset-4 transition-colors hover:text-fg hover:underline">
+            Full report (.md)
+          </button>
+          {rescanLink && <CopyButton text={rescanLink} label="Copy re-scan link" />}
+          {!isDemo && !isBuild && (
+            <Link href={href("/history")} className="text-xs text-muted underline-offset-4 transition-colors hover:text-fg hover:underline">
+              Get a README badge
+            </Link>
+          )}
+        </div>
       </Panel>
 
       <Panel
+        index={9}
         title="Need a human review?"
         description={
           isBuild
@@ -76,7 +94,7 @@ export function ExportBar({ result, isDemo = false, onOpenPro }: { result: ScanR
           <button
             type="button"
             onClick={onOpenPro}
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-fg px-3 text-xs font-medium text-ink transition-colors hover:bg-accent"
+            className="btn-primary inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3.5 text-xs font-medium"
           >
             Order a review
             <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />

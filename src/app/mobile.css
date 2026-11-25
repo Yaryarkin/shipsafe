@@ -1,0 +1,62 @@
+/* ───────────── Device layer: mobile < 768px · tablet 768–1024px · desktop > 1024px ───────────── */
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+button,
+a,
+select,
+summary,
+[role="tab"] {
+  touch-action: manipulation;
+}
+
+/* Bottom tab bar sits above the home indicator. Unlayered, so it restates its own position. */
+.mobile-nav {
+  position: fixed;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+.pb-safe {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+/* Sticky side rail keeps its own scroll and shows no scrollbar. */
+.rail-scroll {
+  scrollbar-width: none;
+}
+.rail-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ───────────── Touch ergonomics: phones and any touch-first device ───────────── */
+@media (max-width: 767px), (pointer: coarse) {
+  /* 16px inputs stop iOS Safari from zooming the page on focus. */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* 44px minimum touch targets (WCAG 2.5.5 / Apple HIG). */
+  button,
+  select,
+  [role="tab"],
+  a.inline-flex,
+  a[class*="inline-flex"] {
+    min-height: 44px;
+  }
+  .mobile-nav a {
+    min-height: 56px;
+  }
+
+  /* Pressed feedback replaces hover on touch. */
+  button:not(.btn-primary):not(:disabled):active,
+  a.inline-flex:active {
+    opacity: 0.7;
+  }
+}

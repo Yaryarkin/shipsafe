@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowRight, Check, Clock, LoaderCircle, ShieldCheck, TriangleAlert, X } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowRight, Check, Clock, LoaderCircle, ShieldCheck, TriangleAlert } from "lucide-react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import {
   formatStars,
   PAYMENT_METHODS,
@@ -68,16 +68,7 @@ function normalizeSite(input: string): string | null | "invalid" {
 const inputClass =
   "h-10 w-full min-w-0 rounded-md border border-line bg-raised px-3 text-sm text-fg placeholder:text-faint focus:border-focus focus:outline-none disabled:opacity-60";
 
-export function ProAuditModal({
-  open,
-  onClose,
-  scannedUrl,
-}: {
-  open: boolean;
-  onClose: () => void;
-  scannedUrl?: string;
-}) {
-  const closeRef = useRef<HTMLButtonElement>(null);
+export function OrderPanel({ scannedUrl }: { scannedUrl?: string }) {
   const [tier, setTier] = useState<TierId>(UI_DEFAULT_TIER);
   const selected = PRICING_TIERS[tier];
   const [method, setMethod] = useState<PaymentMethodId>("solana");
@@ -92,29 +83,15 @@ export function ProAuditModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
     setPreviousEmail(readStoredEmail());
-    setStatus("idle");
-    setError(null);
     if (scannedUrl) setSite((current) => current || scannedUrl);
+  }, [scannedUrl]);
 
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    closeRef.current?.focus();
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previouslyFocused?.focus();
-    };
-  }, [open, onClose, scannedUrl]);
-
-  if (!open) return null;
+  // Links from the bot or a teammate can preselect an audit: /order?tier=quick
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tier");
+    if (requested && (TIER_IDS as readonly string[]).includes(requested)) setTier(requested as TierId);
+  }, []);
 
   const submitting = status === "submitting";
   const isPaidOrder = txHash.trim().length > 0;
@@ -184,24 +161,7 @@ export function ProAuditModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
-      <div className="animate-fade-in absolute inset-0 bg-black/70" onClick={onClose} aria-hidden="true" />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pro-audit-title"
-        className="animate-fade-up relative max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-t-xl border border-line bg-card p-5 shadow-2xl sm:rounded-xl sm:p-6"
-      >
-        <button
-          ref={closeRef}
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-line hover:text-fg"
-        >
-          <X className="h-4 w-4" aria-hidden="true" />
-        </button>
-
+    <section aria-labelledby="pro-audit-title" className="reveal surface rounded-lg p-5 sm:p-8" style={{ "--i": 1 } as CSSProperties}>
         <p className="text-xs font-medium uppercase tracking-wide text-muted">ShipSafe Pro</p>
         <h2 id="pro-audit-title" className="mt-1.5 pr-8 text-xl font-semibold tracking-tight">
           Get a human security review
@@ -224,14 +184,14 @@ export function ProAuditModal({
                 disabled={submitting || Boolean(submitted)}
                 onClick={() => setTier(id)}
                 className={`rounded-lg border p-3.5 text-left transition-colors disabled:cursor-not-allowed ${
-                  active ? "border-fg/35 bg-card" : "border-line bg-raised hover:border-line-strong"
+                  active ? "border-brand/60 bg-card" : "border-line bg-raised hover:border-line-strong"
                 }`}
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="font-mono text-2xl font-semibold tabular-nums">${option.priceUsd}</span>
                   <span
-                    className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                      active ? "border-fg bg-fg" : "border-line-strong"
+                    className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-md border ${
+                      active ? "border-brand bg-brand" : "border-line-strong"
                     }`}
                     aria-hidden="true"
                   >
@@ -268,7 +228,7 @@ export function ProAuditModal({
               href={CHECKOUT_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-fg text-sm font-semibold text-ink transition-colors hover:bg-accent"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 btn-primary rounded-md text-sm font-semibold text-ink transition-colors hover:bg-accent"
             >
               Continue to checkout
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -404,7 +364,7 @@ export function ProAuditModal({
                         href={starsDeepLink(tier)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-fg px-4 text-sm font-semibold text-ink transition-colors hover:bg-accent"
+                        className="mt-3 inline-flex h-10 w-full items-center justify-center gap-2 btn-primary rounded-md px-4 text-sm font-semibold text-ink transition-colors hover:bg-accent"
                       >
                         Pay with Telegram Stars
                         <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -502,7 +462,7 @@ export function ProAuditModal({
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-md bg-fg px-4 text-sm font-semibold text-ink transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-70"
+                    className="inline-flex h-10 w-full items-center justify-center gap-2 btn-primary rounded-md px-4 text-sm font-semibold text-ink transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {submitting && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
                     {submitting ? "Sending…" : isPaidOrder ? `Submit paid order ($${selected.priceUsd})` : "Send inquiry"}
@@ -516,7 +476,6 @@ export function ProAuditModal({
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </section>
   );
 }

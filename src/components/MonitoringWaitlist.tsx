@@ -1,5 +1,6 @@
 "use client";
 
+import { revealStyle } from "./Reveal";
 import { useState, type FormEvent } from "react";
 import { apiErrorSchema } from "@/lib/scanner/types";
 import {
@@ -26,7 +27,7 @@ function normalizeSite(raw: string): string | undefined | "invalid" {
   }
 }
 
-export function MonitoringWaitlist({ defaultSite }: { defaultSite?: string }) {
+export function MonitoringWaitlist({ defaultSite, revealIndex = 0 }: { defaultSite?: string; revealIndex?: number }) {
   const [plan, setPlan] = useState<MonitoringPlanId>("web");
   const [email, setEmail] = useState("");
   const [site, setSite] = useState(defaultSite ?? "");
@@ -72,7 +73,7 @@ export function MonitoringWaitlist({ defaultSite }: { defaultSite?: string }) {
   };
 
   return (
-    <section id="monitoring" aria-labelledby="monitoring-title" className="scroll-mt-20 rounded-xl border border-line bg-card p-5 sm:p-6">
+    <section id="monitoring" aria-labelledby="monitoring-title" className="reveal scroll-mt-20 surface rounded-lg p-5 sm:p-6" style={revealStyle(revealIndex)}>
       <div className="flex flex-wrap items-center gap-2">
         <h2 id="monitoring-title" className="text-base font-semibold">
           Continuous monitoring
@@ -101,7 +102,7 @@ export function MonitoringWaitlist({ defaultSite }: { defaultSite?: string }) {
                 <label
                   key={id}
                   className={`cursor-pointer rounded-md border p-3 text-sm transition-colors ${
-                    selected ? "border-fg/35 bg-card" : "border-line bg-raised hover:border-line-strong"
+                    selected ? "border-brand/60 bg-card" : "border-line bg-raised hover:border-line-strong"
                   }`}
                 >
                   <input type="radio" name="monitoring-plan" value={id} checked={selected} onChange={() => setPlan(id)} className="sr-only" />
@@ -140,7 +141,7 @@ export function MonitoringWaitlist({ defaultSite }: { defaultSite?: string }) {
             <button
               type="submit"
               disabled={status === "submitting"}
-              className="h-10 rounded-md bg-fg px-4 text-sm font-semibold text-ink transition-colors hover:bg-accent disabled:opacity-60"
+              className="h-10 btn-primary rounded-md px-4 text-sm font-semibold text-ink transition-colors hover:bg-accent disabled:opacity-60"
             >
               {status === "submitting" ? "Sending…" : "Join the waitlist"}
             </button>

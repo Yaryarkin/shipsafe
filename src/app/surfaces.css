@@ -1,0 +1,137 @@
+/*
+ * Deep graphite command-center surfaces. Solid fills and 1px borders; no blur, no frosted layers.
+ *   canvas    #07080A  with a faint dot grid and one ice-cyan spotlight
+ *   panel     #0E1015  border #1E222D  and a 1px ice-cyan light along the top edge
+ *   elevated  #14171F  border #1E222D  (inputs, code, menus, chips)
+ *   accent    #38BDF8  (brand) — status colors stay emerald / amber / crimson
+ */
+
+html {
+  background-color: #07080a;
+}
+
+/* Fixed backdrop: a dot grid that fades toward the edges, and a faint cool spotlight behind the header. Static. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(52rem 26rem at 50% -4%, rgba(56, 189, 248, 0.06), transparent 70%),
+    radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.14) 1px, transparent 0);
+  background-size:
+    100% 100%,
+    28px 28px;
+  -webkit-mask-image: radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 85%);
+  mask-image: radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 85%);
+}
+body {
+  background-color: transparent;
+}
+
+.surface {
+  background-color: #0e1015;
+  border: 1px solid #1e222d;
+  /* Machined top edge: a 1px ice-cyan highlight that fades out toward both corners. */
+  background-image: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.35), transparent);
+  background-size: 100% 1px;
+  background-repeat: no-repeat;
+  background-position: top;
+}
+/* Long lists stay quiet: rows get the plain panel. */
+li.surface {
+  background-image: none;
+}
+.surface[data-open="true"] {
+  border-color: rgba(56, 189, 248, 0.38);
+}
+
+/* Inputs, code blocks, menus: one step above a panel. */
+.surface-raised {
+  background-color: #14171f;
+  border: 1px solid #1e222d;
+}
+
+/* Sticky top bar: flat canvas with a hairline underneath. */
+.topbar {
+  background-color: #07080a;
+  border-bottom: 1px solid #1e222d;
+}
+
+/* Small controls: segmented switches, secondary buttons, nav links. */
+.chip {
+  background-color: #14171f;
+  border: 1px solid #1e222d;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+button.chip:hover:not(:disabled),
+a.chip:hover {
+  border-color: #2e3646;
+}
+.chip-active {
+  background-color: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  color: #e0f2fe;
+}
+
+/* Text input / dropzone surface. */
+.field {
+  background-color: #0a0c10;
+  border: 1px solid #1e222d;
+  transition: border-color 120ms ease;
+}
+.field:focus,
+.field:focus-within {
+  border-color: #38bdf8;
+  outline: none;
+}
+
+/* Primary action: solid ice cyan with near-black text. A calm hover shift, nothing else. */
+.btn-primary {
+  background-color: #38bdf8;
+  color: #04121c;
+  border: 1px solid #38bdf8;
+  font-weight: 600;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: #7dd3fc;
+  border-color: #7dd3fc;
+}
+.btn-primary:active:not(:disabled) {
+  background-color: #0ea5e9;
+  border-color: #0ea5e9;
+}
+
+/* Always-on logo rotation. */
+.logo-spin {
+  transform-origin: 50% 50%;
+  will-change: transform;
+  animation: logo-spin 14s linear infinite;
+}
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Radar: the sweep turns only while a scan runs (not hover-gated: it follows the scan state). */
+.radar-sweep {
+  transform-origin: 50% 50%;
+  animation: logo-spin 2.4s linear infinite;
+  will-change: transform;
+}
+.radar-ring {
+  transition: stroke 300ms ease, opacity 300ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-spin,
+  .radar-sweep {
+    animation: none !important;
+  }
+}

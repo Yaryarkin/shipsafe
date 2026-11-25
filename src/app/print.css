@@ -1,0 +1,139 @@
+/* ───────────── Print / Save as PDF: a plain document, no color blocks, blur or animation ───────────── */
+
+@page {
+  margin: 14mm;
+}
+
+.print-report {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.5;
+  color: #111;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  /* Everything except the report document is hidden when printing. */
+  .backdrop,
+  .mobile-nav,
+  .print-hide {
+    display: none !important;
+  }
+
+  .print-report {
+    display: block !important;
+  }
+  .print-report h1 {
+    font-size: 22pt;
+    margin: 2pt 0 4pt;
+    word-break: break-all;
+  }
+  .print-report h2 {
+    font-size: 13pt;
+    margin: 16pt 0 6pt;
+    padding-bottom: 3pt;
+    border-bottom: 1px solid #ccc;
+    break-after: avoid;
+  }
+  .print-report h3 {
+    font-size: 11pt;
+    margin: 0 0 2pt;
+    break-after: avoid;
+  }
+  .print-report p {
+    margin: 3pt 0;
+  }
+  .print-report ul,
+  .print-report ol {
+    margin: 3pt 0 3pt 16pt;
+    padding: 0;
+  }
+  .print-report li {
+    margin: 2pt 0;
+  }
+  .print-kicker {
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #555;
+  }
+  .print-meta,
+  .print-muted {
+    color: #555;
+    font-size: 9pt;
+  }
+  .print-score {
+    display: flex;
+    align-items: center;
+    gap: 16pt;
+    margin: 10pt 0;
+    padding: 10pt 12pt;
+    border: 1px solid #bbb;
+    border-radius: 6pt;
+  }
+  .print-score-value {
+    font-size: 30pt;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .print-score-value span {
+    font-size: 12pt;
+    color: #555;
+  }
+  .print-grade {
+    font-size: 13pt;
+    font-weight: 600;
+  }
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0;
+  }
+  .print-table th,
+  .print-table td {
+    border: 1px solid #ccc;
+    padding: 3pt 8pt;
+    text-align: left;
+  }
+  .print-table th {
+    background: #f1f1f1;
+  }
+  .print-checklist {
+    list-style: none;
+    margin-left: 0 !important;
+  }
+  .print-checklist li::before {
+    content: "☐ ";
+  }
+  .print-finding {
+    break-inside: avoid;
+    margin: 0 0 12pt;
+    padding: 8pt 10pt;
+    border: 1px solid #ccc;
+    border-radius: 5pt;
+  }
+  .print-report pre {
+    margin: 4pt 0;
+    padding: 5pt 7pt;
+    background: #f4f4f4;
+    border: 1px solid #ddd;
+    border-radius: 3pt;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 8pt;
+    line-height: 1.4;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .print-footer {
+    margin-top: 18pt;
+    padding-top: 6pt;
+    border-top: 1px solid #ccc;
+    color: #666;
+    font-size: 8.5pt;
+  }
+}

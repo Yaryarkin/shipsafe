@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ShipSafeApp } from "@/components/ShipSafeApp";
+import { ScannerView } from "@/components/ScannerView";
 import { parseScoreCardParams, SHARE_PARAM_KEYS } from "@/lib/og-params";
 import { landingPageMetadata } from "@/lib/site-metadata";
 
@@ -12,5 +12,5 @@ export async function generateMetadata({ searchParams }: { searchParams: SearchP
 }
 
 export default function HomePage() {
-  return <ShipSafeApp />;
+  return <ScannerView />;
 }

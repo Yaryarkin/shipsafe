@@ -1,4 +1,4 @@
-import type { Finding, Grade, ScanSummary, Severity } from "./types";
+import type { Finding, Grade, ScanSummary, ScoreBreakdown, Severity } from "./types";
 
 /** Pure scoring helpers – safe to import from both server and client code. */
 
@@ -30,4 +30,16 @@ export function scoreFindings(findings: Finding[]): { score: number; grade: Grad
 
 export function sortFindings(findings: Finding[]): Finding[] {
   return [...findings].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+}
+
+/** Explains how the score was reached: points lost per severity and whether the critical cap applied. */
+export function buildScoreBreakdown(findings: Finding[]): ScoreBreakdown {
+  const counts: Record<Severity, number> = { critical: 0, warning: 0, info: 0, passed: 0 };
+  for (const item of findings) counts[item.severity] += 1;
+  const items = (["critical", "warning"] as const)
+    .filter((severity) => counts[severity] > 0)
+    .map((severity) => ({ severity, count: counts[severity], pointsEach: PENALTY[severity], points: counts[severity] * PENALTY[severity] }));
+  const uncapped = Math.max(0, 100 - items.reduce((sum, item) => sum + item.points, 0));
+  const capped = counts.critical > 0 && uncapped > CRITICAL_SCORE_CAP;
+  return { base: 100, items, criticalCap: capped ? CRITICAL_SCORE_CAP : null, total: scoreFindings(findings).score };
 }

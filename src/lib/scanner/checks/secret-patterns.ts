@@ -22,7 +22,20 @@ interface SecretPattern {
   regex: RegExp;
   /** Keep the literal visible (e.g. PEM headers) instead of masking. */
   literal?: boolean;
+  /** Extra filter for noisy formats (placeholders, example values). Matches it rejects are ignored. */
+  accept?: (match: string) => boolean;
   rotate: string;
+}
+
+const PLACEHOLDER_PASSWORD = /^(?:password|passwd|pass|pwd|secret|changeme|change[-_]?me|your[-_]?password|<?password>?|x{3,}|\*{3,}|\.{3,}|example|test|admin|root|postgres|123456)$/i;
+const SAFE_DB_HOST = /@(?:localhost|127\.0\.0\.1|0\.0\.0\.0|host|hostname|example\.(?:com|org|net)|db|database|postgres|mysql|mongo|redis)(?=[:/?\s'"]|$)/i;
+
+/** Rejects documentation-style connection strings such as postgres://user:password@localhost/db. */
+export function isRealDatabaseUrl(match: string): boolean {
+  const credentials = /^[a-z0-9+.-]+:\/\/([^:@/\s]+):([^@\s/]+)@/i.exec(match);
+  const password = credentials?.[2] ?? "";
+  if (!password || PLACEHOLDER_PASSWORD.test(password) || /^[<{[$].*[>}\]]?$/.test(password)) return false;
+  return !SAFE_DB_HOST.test(match);
 }
 
 const SECRET_PATTERNS: SecretPattern[] = [
@@ -105,6 +118,84 @@ const SECRET_PATTERNS: SecretPattern[] = [
     rotate: "Delete the secret key in Supabase → Project Settings → API Keys and create a new one used only server-side.",
   },
   {
+    id: "telegram-bot-token",
+    name: "Telegram bot token",
+    severity: "critical",
+    regex: /\b\d{8,10}:AA[A-Za-z0-9_-]{33}\b/g,
+    rotate: "Open @BotFather, run /revoke for this bot to get a new token, and move every Telegram API call to your server.",
+  },
+  {
+    id: "database-url",
+    name: "Database connection string with password",
+    severity: "critical",
+    regex: /\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|amqps?):\/\/[^\s:@/'"`<>]{1,64}:[^\s@/'"`<>]{3,128}@[^\s'"`<>]{3,}/g,
+    accept: isRealDatabaseUrl,
+    rotate: "Change the database user's password now, restrict the database to your server's IPs, and move the connection string to a server-only environment variable.",
+  },
+  {
+    id: "firebase-server-key",
+    name: "Firebase / FCM legacy server key",
+    severity: "critical",
+    regex: /\bAAAA[A-Za-z0-9_-]{7}:[A-Za-z0-9_-]{140}\b/g,
+    rotate: "Disable the legacy server key in Firebase Console → Project settings → Cloud Messaging and migrate to the HTTP v1 API with a service account kept on the server.",
+  },
+  {
+    id: "google-service-account",
+    name: "Google service account key",
+    severity: "critical",
+    regex: /"type"\s*:\s*"service_account"[\s\S]{0,400}?"private_key_id"\s*:\s*"[0-9a-f]{20,}"/g,
+    rotate: "Delete this key in Google Cloud Console → IAM → Service accounts → Keys, create a new one stored only on the server, and review audit logs.",
+  },
+  {
+    id: "npm-token",
+    name: "npm access token",
+    severity: "critical",
+    regex: /\bnpm_[A-Za-z0-9]{36}\b/g,
+    rotate: "Revoke the token on npmjs.com → Access Tokens and review recently published package versions.",
+  },
+  {
+    id: "mailgun-key",
+    name: "Mailgun API key",
+    severity: "critical",
+    regex: /\bkey-[0-9a-f]{32}\b/g,
+    rotate: "Rotate the API key in Mailgun → API security and send mail only from your server.",
+  },
+  {
+    id: "twilio-api-key",
+    name: "Twilio API key SID",
+    severity: "warning",
+    regex: /\bSK[0-9a-f]{32}\b/g,
+    rotate: "Delete the API key in the Twilio Console → API keys & tokens and create a new one used only server-side.",
+  },
+  {
+    id: "digitalocean-token",
+    name: "DigitalOcean token",
+    severity: "critical",
+    regex: /\bdo[pro]_v1_[0-9a-f]{64}\b/g,
+    rotate: "Revoke the token in DigitalOcean → API → Tokens and check the activity log for unknown droplets or spaces.",
+  },
+  {
+    id: "mapbox-secret",
+    name: "Mapbox secret token",
+    severity: "critical",
+    regex: /\bsk\.eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/g,
+    rotate: "Delete the secret token in your Mapbox account → Access tokens and use a public (pk.) token with URL restrictions in the browser.",
+  },
+  {
+    id: "discord-bot-token",
+    name: "Discord bot token",
+    severity: "critical",
+    regex: /\b[MNO][A-Za-z0-9_-]{23,25}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,38}\b/g,
+    rotate: "Reset the token in the Discord Developer Portal → Bot → Reset Token and keep it on the server only.",
+  },
+  {
+    id: "aws-secret-key",
+    name: "AWS secret access key",
+    severity: "critical",
+    regex: /aws_?secret_?(?:access_?)?key["'\s:=]{1,6}[A-Za-z0-9/+=]{40}\b/gi,
+    rotate: "Deactivate and delete the access key in IAM, create a new one stored only server-side, and check CloudTrail for misuse.",
+  },
+  {
     id: "stripe-test",
     name: "Stripe test secret key",
     severity: "warning",
@@ -118,6 +209,23 @@ const SUPABASE_URL_REGEX = /https:\/\/[a-z0-9]{20}\.supabase\.co/g;
 const SUPABASE_PUBLISHABLE_REGEX = /\bsb_publishable_[A-Za-z0-9_-]{20,}/g;
 const FIREBASE_REGEX = /\b[a-z0-9-]+\.firebaseapp\.com\b|\b[a-z0-9-]+\.firebaseio\.com\b|\b[a-z0-9-]+-default-rtdb\.[a-z0-9-]+\.firebasedatabase\.app\b/g;
 const GOOGLE_API_KEY_REGEX = /\bAIza[0-9A-Za-z_-]{35}\b/g;
+
+/**
+ * Keys that are meant to ship in client code. Finding one is expected, not an incident: it is
+ * reported as an informational note (restrict it, do not rotate it), never as a leaked secret.
+ */
+const PUBLIC_KEY_PATTERNS: Array<{ label: string; regex: RegExp }> = [
+  { label: "Publishable key (Stripe / Clerk)", regex: /\bpk_(?:live|test)_[0-9A-Za-z]{20,247}\b/g },
+  { label: "Mapbox public token", regex: /\bpk\.eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/g },
+  { label: "Sentry DSN", regex: /https:\/\/[0-9a-f]{32}@o\d+\.ingest(?:\.[a-z]{2})?\.sentry\.io\/\d+/g },
+  { label: "PostHog project key", regex: /\bphc_[A-Za-z0-9]{30,}\b/g },
+  { label: "reCAPTCHA / hCaptcha site key", regex: /\b6L[cd][0-9A-Za-z_-]{37}\b/g },
+];
+
+/** Obvious placeholders such as sk_live_XXXXXXXXXXXXXXXX or sk_live_your_key_here are not real keys. */
+export function isPlaceholderSecret(match: string): boolean {
+  return /x{12,}/i.test(match) || /(?:your|example|placeholder|changeme|dummy|sample)[-_]?(?:key|secret|token)?/i.test(match) || /<[^>]+>|\$\{[^}]+\}/.test(match);
+}
 
 const SERVICE_ROLE_PATTERN: SecretPattern = {
   id: "supabase-service-role",
@@ -200,10 +308,13 @@ export function analyzeSecrets(
   const secretHits: Hits = new Map();
   const supabaseHints = new Map<string, Set<string>>();
   const firebaseHints = new Map<string, Set<string>>();
+  const publicKeys = new Map<string, Set<string>>();
 
   for (const source of sources) {
     for (const pattern of SECRET_PATTERNS) {
       for (const match of limitedMatches(source.text, pattern.regex)) {
+        if (pattern.accept && !pattern.accept(match)) continue;
+        if (!pattern.literal && isPlaceholderSecret(match)) continue;
         record(secretHits, pattern.id, pattern.literal ? match : maskSecret(match), source.label);
       }
     }
@@ -224,9 +335,15 @@ export function analyzeSecrets(
       addHint(supabaseHints, `publishable key ${maskSecret(match)}`, source.label);
     }
     for (const match of limitedMatches(source.text, FIREBASE_REGEX)) addHint(firebaseHints, match, source.label);
-    if (/firebase/i.test(source.text)) {
-      for (const match of limitedMatches(source.text, GOOGLE_API_KEY_REGEX)) {
-        addHint(firebaseHints, `apiKey ${maskSecret(match)}`, source.label);
+    const firebaseContext = /firebase/i.test(source.text);
+    for (const match of limitedMatches(source.text, GOOGLE_API_KEY_REGEX)) {
+      if (firebaseContext) addHint(firebaseHints, `apiKey ${maskSecret(match)}`, source.label);
+      else addHint(publicKeys, `Google API key ${maskSecret(match)}`, source.label);
+    }
+    for (const publicPattern of PUBLIC_KEY_PATTERNS) {
+      for (const match of limitedMatches(source.text, publicPattern.regex)) {
+        if (isPlaceholderSecret(match)) continue;
+        addHint(publicKeys, `${publicPattern.label} ${maskSecret(match)}`, source.label);
       }
     }
   }
@@ -312,6 +429,31 @@ export function analyzeSecrets(
             "Add rules unit tests with the Firebase Emulator Suite proving a logged-out user and a different user cannot read/write others' data.",
           ],
           verify: "Deploy rules with `firebase deploy --only firestore:rules,storage` and run the emulator tests.",
+        }),
+      }),
+    );
+  }
+
+  if (publicKeys.size > 0) {
+    findings.push(
+      finding({
+        id: "secrets.public-keys",
+        category: "secrets",
+        severity: "info",
+        title: "Public client-side keys found (expected)",
+        description:
+          "These keys are designed to be in the browser (publishable, public or site keys), so this is not a leak and nothing needs rotating. Make sure each one is restricted in its provider dashboard (allowed domains, referrer or app restrictions) so it cannot be reused elsewhere.",
+        evidence: evidenceFor(publicKeys),
+        fixPrompt: buildFixPrompt({
+          site,
+          issue: "My client-side code contains public keys (publishable, public or site keys). I want to confirm they are safe to expose.",
+          goal: "Every public key is restricted to my domains and none of them is actually a server secret.",
+          steps: [
+            "For each key, confirm its prefix: pk_ / public / site keys are meant for the browser, while sk_ / secret / service_role keys never are.",
+            "Restrict browser keys in the provider dashboard: HTTP referrer restrictions for Google and Mapbox keys, allowed domains for Stripe and Clerk, and an allow-list for Sentry.",
+            "Search the bundle for the matching secret key to be sure the server half is not shipped too.",
+          ],
+          verify: "Open the provider dashboard and confirm the key shows domain or referrer restrictions, then re-scan.",
         }),
       }),
     );
